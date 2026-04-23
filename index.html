@@ -1,0 +1,2197 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sadhana Tracker — Daily Spiritual Journal</title>
+    <meta name="description" content="Track your daily spiritual practices including Japa chanting, scripture reading, and Mangal Aarti attendance.">
+    <meta name="theme-color" content="#b45309">
+    <link rel="manifest" href="manifest.json">
+
+    <!-- Local Libraries -->
+    <script src="libs/chart.min.js"></script>
+    <script src="libs/lucide.min.js"></script>
+    <script src="libs/xlsx.full.min.js"></script>
+
+    <!-- Firebase (compat SDK) -->
+    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+    <script src="firebase-config.js"></script>
+
+    <!-- Fonts & Tailwind -->
+    <link href="fonts/outfit.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet"/>
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
+    
+    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+    
+
+
+    <script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        base: 'var(--bg-base)',
+                        surface: 'var(--bg-surface)',
+                        card: 'var(--bg-card)',
+                        input: 'var(--bg-input)',
+                        borderGlass: 'var(--border-glass)',
+                        textPrim: 'var(--text-primary)',
+                        textSec: 'var(--text-secondary)',
+                        textMut: 'var(--text-muted)',
+                        accent: 'var(--accent)',
+                        accentDark: 'var(--accent-dark)',
+                        tertiary: '#e2c0ff'
+                    },
+                    fontFamily: {
+                        "inter": ["Inter", "sans-serif"],
+                        "outfit": ["Outfit", "sans-serif"]
+                    }
+                }
+            }
+        };
+    </script>
+    <style>
+
+        :root {
+            --bg-base: #faf4eb;
+            --bg-surface: rgba(255, 255, 255, 0.62);
+            --bg-input: rgba(255, 255, 255, 0.7);
+            --bg-card: rgba(255, 255, 255, 0.45);
+            --border-glass: rgba(0, 0, 0, 0.1);
+            --border-subtle: rgba(0, 0, 0, 0.06);
+            --text-primary: #1a1208;
+            --text-secondary: #6b5c4c;
+            --text-muted: #9a8b7a;
+            --text-main: #1a1208;
+            --accent: hsl(28, 95%, 54%);
+            --accent-dark: hsl(28, 90%, 42%);
+        }
+        .dark {
+            --bg-base: #101010;
+            --bg-surface: #1a1a1a;
+            --bg-input: rgba(255, 255, 255, 0.05);
+            --bg-card: #222222;
+            --border-glass: rgba(255, 255, 255, 0.1);
+            --border-subtle: rgba(255, 255, 255, 0.05);
+            --text-primary: #ffffff;
+            --text-secondary: #aaaaaa;
+            --text-muted: #888888;
+            --accent: #5ce1e6;
+            --accent-dark: #37b7bc;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: #0b1326;
+            margin: 0;
+            padding: 0;
+            min-height: max(884px, 100dvh);
+            color: #dae2fd;
+            overflow-x: hidden;
+            -webkit-tap-highlight-color: transparent;
+        }
+        .bg-void {
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            z-index: -1;
+            background: radial-gradient(circle at 10% 20%, rgba(45, 52, 184, 0.15) 0%, transparent 40%),
+                        radial-gradient(circle at 90% 80%, rgba(255, 153, 51, 0.1) 0%, transparent 40%),
+                         #0b1326;
+        }
+        .glass-card {
+            background: rgba(255, 255, 255, 0.03);
+            backdrop-filter: blur(25px);
+            -webkit-backdrop-filter: blur(25px);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+        }
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .progress-ring-circle {
+            transition: stroke-dashoffset 0.35s;
+            transform: rotate(-90deg);
+            transform-origin: 50% 50%;
+        }
+        
+        /* Layout */
+        .mobile-panel {
+            display: none !important;
+            animation: fadeIn 0.3s ease;
+        }
+        .mobile-panel.active {
+            display: flex !important;
+            flex-direction: column;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* Nav active states */
+        .nav-btn {
+            color: #64748b; /* slate-500 */
+        }
+        .nav-btn.active {
+            color: #FF9933;
+            background: rgba(255,255,255,0.1);
+            border-radius: 1rem;
+            box-shadow: inset 0 0 0 1px rgba(255,255,255,0.2);
+            transform: scale(0.95);
+        }
+
+        /* Inputs */
+        input[type=number]::-webkit-inner-spin-button, 
+        input[type=number]::-webkit-outer-spin-button { 
+            -webkit-appearance: none; 
+            margin: 0; 
+        }
+
+        /* Toggle switch */
+        .switch {
+            position: relative;
+            display: inline-block;
+            width: 48px;
+            height: 26px;
+        }
+        .switch input { opacity: 0; width: 0; height: 0; }
+        .slider {
+            position: absolute; cursor: pointer;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background-color: rgba(255,255,255,0.1);
+            transition: .4s;
+            border-radius: 34px;
+            border: 1px solid rgba(255,255,255,0.2);
+        }
+        .slider:before {
+            position: absolute; content: "";
+            height: 18px; width: 18px; left: 4px; bottom: 3px;
+            background-color: #64748b;
+            transition: .4s;
+            border-radius: 50%;
+        }
+        input:checked + .slider {
+            background-color: rgba(255,153,51,0.2);
+            border-color: #FF9933;
+        }
+        input:checked + .slider:before {
+            transform: translateX(20px);
+            background-color: #FF9933;
+            box-shadow: 0 0 8px #FF9933;
+        }
+
+        /* Quick Menu dropdown */
+        .quick-menu {
+            position: absolute;
+            left: 0; top: 120%;
+            background: var(--bg-card);
+            backdrop-filter: blur(25px);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            border-radius: 16px;
+            padding: 12px;
+            min-width: 220px;
+            display: none;
+            z-index: 100;
+        }
+        .quick-menu.open { display: block; }
+        
+        .toast {
+            position: fixed; bottom: 6rem; left: 50%; transform: translateX(-50%) translateY(100%);
+            background: var(--bg-card, rgba(0,0,0,0.8)); color: white; padding: 12px 24px; border-radius: 50px;
+            opacity: 0; transition: all 0.3s ease; z-index: 1000; border: 1px solid rgba(255, 255, 255, 0.12);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.5); backdrop-filter: blur(10px);
+        }
+        .toast.visible { transform: translateX(-50%) translateY(0); opacity: 1; }
+
+        /* Calendar */
+        .cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
+        .cal-day {
+            aspect-ratio: 1; border-radius: 8px; display: flex; flex-direction: column; 
+            align-items: center; justify-content: center; font-size: 0.8rem;
+            background: rgba(255,255,255,0.05); color: #94a3b8; cursor: pointer;
+            border: 1px solid rgba(255,255,255,0.05); transition: transform 0.2s;
+        }
+        .cal-day.score-high { background: rgba(34,197,94,0.2); color: #22c55e; border-color: rgba(34,197,94,0.4); }
+        .cal-day.score-mid { background: rgba(255,153,51,0.1); color: #d97706; border-color: rgba(255,153,51,0.2); }
+        .cal-day.score-low { background: rgba(244,63,94,0.1); color: #fb7185; border-color: rgba(244,63,94,0.2); }
+        .cal-day.selected { border: 2px solid #FF9933; box-shadow: 0 0 10px rgba(255,153,51,0.3); transform: scale(1.05); z-index: 5;}
+
+        .leaderboard-row {
+            display: grid; grid-template-columns: 36px 1fr auto; gap: 12px;
+            align-items: center; padding: 12px; border-radius: 12px;
+            background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.05);
+        }
+        .leaderboard-row.top-1 { border-color: rgba(255,153,51,0.4); box-shadow: 0 4px 15px rgba(255,153,51,0.1); }
+        .leaderboard-rank { width: 36px; height: 36px; border-radius: 8px; display: flex; align-items: center; justify-content: center; background: rgba(255,255,255,0.1); font-weight: bold; }
+        .leaderboard-score strong { display: block; text-align: right; color: #FF9933; }
+
+        .book-entry-row { display: flex; gap: 8px; margin-bottom: 8px; align-items: center; }
+        .book-input, .book-mins { background: var(--bg-input) !important; border: 1px solid var(--border-glass) !important; color: var(--text-primary) !important; border-radius: 8px !important; padding: 10px !important;  display: block; flex: 1; width: 100%; transition: border-color 0.2s;}
+        .book-input:focus, .book-mins:focus { outline: none; border-color: #FF9933 !important; box-shadow: 0 0 0 1px #FF9933 !important; }
+        .book-mins { flex: none; width: 70px !important; text-align: center; }
+        .book-remove-btn { width: 44px; height: 44px; flex-shrink: 0; background: rgba(244,63,94,0.1); color: #fb7185; border-radius: 8px; display: flex; align-items: center; justify-content: center; border: 1px solid rgba(244,63,94,0.2);}
+    </style>
+</head>
+<body class="bg-base">
+    <div class="bg-void"></div>
+
+    <!-- Top Navigation -->
+    <header class="fixed top-0 left-0 w-full z-40 flex justify-between items-center px-6 h-16 bg-white/3 backdrop-blur-[25px] border-b border-borderGlass shadow-sm">
+        <div class="flex items-center gap-4 relative">
+            <button id="quickMenuBtn" class="w-10 h-10 flex items-center justify-center rounded-full hover:bg-surface transition-all active:scale-95 duration-200">
+                <span class="material-symbols-outlined text-textSec">menu</span>
+            </button>
+            <h1 class="font-inter font-black text-xl text-accent tracking-widest uppercase">Sadhana</h1>
+
+            <!-- Quick Menu -->
+            <div id="quickMenuPanel" class="quick-menu" role="menu">
+                <div class="flex flex-col gap-3">
+                    <div class="flex items-center gap-2 text-sm text-textSec px-1">
+                        <i data-lucide="shield-check" class="w-4 h-4"></i>
+                        <span id="authStatusLabel" class="font-medium">Local mode</span>
+                    </div>
+                    <div class="flex items-center gap-2 text-sm text-textSec px-1">
+                        <i data-lucide="user" class="w-4 h-4"></i>
+                        <span id="profileNameText" class="font-medium">Set name</span>
+                    </div>
+                    <div class="flex items-center gap-2 text-sm text-textSec px-1">
+                        <i data-lucide="cloud" class="w-4 h-4"></i>
+                        <span id="syncStatusText" class="font-medium">Offline</span>
+                        <span id="syncStatusChip" class="hidden"></span>
+                    </div>
+                    <hr class="border-borderGlass my-1">
+                    <div class="flex gap-2">
+                        <button id="authBtn" class="p-2.5 bg-input rounded-xl hover:bg-surface flex-1 flex justify-center text-textPrim/80 hover:text-textPrim transition-colors" title="Login / Logout"><i data-lucide="log-in" id="authBtnIcon" class="w-5 h-5"></i></button>
+                        <button id="themeToggle" class="p-2.5 bg-input rounded-xl hover:bg-surface flex-1 justify-center text-textPrim/80 hover:text-textPrim transition-colors hidden"><i data-lucide="moon" id="moonIcon" class="w-5 h-5"></i><i data-lucide="sun" id="sunIcon" class="w-5 h-5 hidden"></i></button>
+                        <button id="exportBtn" class="p-2.5 bg-input rounded-xl hover:bg-surface flex-1 flex justify-center text-textPrim/80 hover:text-textPrim transition-colors" title="Export Excel"><i data-lucide="download" class="w-5 h-5"></i></button>
+                        <button id="setProfileNameBtn" class="p-2.5 bg-input rounded-xl hover:bg-surface flex-1 flex justify-center text-textPrim/80 hover:text-textPrim transition-colors" title="Set Name"><i data-lucide="user-pen" class="w-5 h-5"></i></button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="w-9 h-9 rounded-full overflow-hidden border-2 border-borderGlass ring-2 ring-primary/20">
+            <img alt="Profile" id="headerProfileImage" class="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDOmSeYBIaDeASutKpxxG-h9wBeJdVZDm5-H2oG_wthnnHmFbw16AMzQsuilz-9TK636NUOL5MBv1KuvA-s5kxYZuTStno5eniUZ1IlkLGpVbJh7-fIki5P0f60C9ng8Q9EpzYFn1cbG58iUDdVPBL0K5pI6XPyUHIM37nC8jHyuMvv0-Vz6JKFKHNM6RDm7nE0G8TFUnrBHGCbtKZTnVu-_5xO2XZfSYEMAA9Qn0MRK_dChFPy946IMCF2c69q_OUdWIZpXWzq3a_8"/>
+        </div>
+    </header>
+
+    <main class="pt-24 pb-32 px-5 max-w-lg mx-auto">
+        <!-- Dashboard / Track Section -->
+        <div id="sectionTrack" class="mobile-panel active space-y-8">
+            <form id="entryForm" autocomplete="off" class="space-y-8">
+                <div class="flex justify-between items-center px-4">
+                    <h2 class="text-textPrim/60 font-medium tracking-wide">Daily Entry</h2>
+                    <span id="selectedDateDisplay" class="px-4 py-1.5 bg-background shadow-inner rounded-full ring-1 ring-borderGlass text-xs font-semibold text-accent tracking-widest text-[11px] uppercase"></span>
+                </div>
+
+                <!-- Main Ring -->
+                <section class="flex flex-col items-center justify-center">
+                    <div class="relative w-64 h-64 flex items-center justify-center">
+                        <svg class="w-full h-full transform -rotate-90">
+                            <circle class="text-textPrim/5" cx="128" cy="128" fill="transparent" r="110" stroke="currentColor" stroke-width="12"></circle>
+                            <circle class="progress-ring-circle drop-shadow-[0_0_12px_rgba(255,153,51,0.6)]" cx="128" cy="128" fill="transparent" r="110" stroke="url(#paint0_linear)" stroke-dasharray="691" stroke-dashoffset="691" stroke-linecap="round" stroke-width="12" id="dailyScoreCircle"></circle>
+                            <defs>
+                                <linearGradient id="paint0_linear" x1="0" x2="1" y1="0" y2="1">
+                                    <stop offset="0%" stop-color="#FF9933"></stop>
+                                    <stop offset="100%" stop-color="#FFC08D"></stop>
+                                </linearGradient>
+                            </defs>
+                        </svg>
+                        <div class="absolute flex flex-col items-center text-center">
+                            <span class="font-inter text-6xl text-accent font-black" id="dailyScoreText">0</span>
+                            <span class="text-xs text-textMut font-semibold tracking-widest uppercase mt-2">Total Points</span>
+                            <div class="mt-3 px-3 py-1 bg-input rounded-full border border-borderGlass">
+                                <span class="text-[10px] uppercase tracking-wider font-semibold text-textPrim/50">Goal: 100</span>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Chanting Section -->
+                <section class="space-y-4">
+                    <div class="flex items-center justify-between px-2">
+                        <h2 class="text-lg text-textPrim/90 font-medium flex gap-2 items-center"><span class="material-symbols-outlined text-accent" style="font-variation-settings: 'FILL' 1;">stars</span> Rounds Chanted</h2>
+                        
+                    </div>
+                    <div class="glass-card rounded-3xl p-5 space-y-4 shadow-lg shadow-black/20">
+                        <!-- Slot 1 -->
+                        <div class="flex items-center justify-between">
+                            <div class="space-y-1">
+                                <p class="text-sm text-textPrim font-medium">Before 6:30 AM</p>
+                                <span class="text-[10px] font-bold px-2 py-0.5 bg-accent text-black rounded-md uppercase shadow-sm inline-block">5 pts/rnd</span>
+                            </div>
+                            <div class="flex items-center bg-background rounded-2xl p-1 shrink-0 ring-1 ring-borderGlass">
+                                <button type="button" class="w-10 h-10 flex items-center justify-center text-textPrim/40 hover:text-accent hover:bg-input rounded-xl transition-all" onclick="document.getElementById('rBefore630').stepDown(); document.getElementById('rBefore630').dispatchEvent(new Event('input'))"><span class="material-symbols-outlined font-bold text-sm">remove</span></button>
+                                <input type="number" id="rBefore630" min="0" max="100" class="w-10 bg-transparent text-center text-lg text-textPrim font-black border-0 focus:ring-0 p-0" placeholder="0">
+                                <button type="button" class="w-10 h-10 flex items-center justify-center text-textPrim/40 hover:text-accent hover:bg-input rounded-xl transition-all" onclick="document.getElementById('rBefore630').stepUp(); document.getElementById('rBefore630').dispatchEvent(new Event('input'))"><span class="material-symbols-outlined font-bold text-sm">add</span></button>
+                            </div>
+                        </div>
+                        <div class="h-px w-full bg-gradient-to-r from-transparent via-white/10 to-transparent"></div>
+                        <!-- Slot 2 -->
+                        <div class="flex items-center justify-between">
+                            <div class="space-y-1">
+                                <p class="text-sm text-textPrim/90 font-medium">6:30 - 8:00 AM</p>
+                                <span class="text-[10px] font-bold px-2 py-0.5 bg-surface text-textPrim/60 rounded-md uppercase ring-1 ring-borderGlass inline-block">4 pts/rnd</span>
+                            </div>
+                            <div class="flex items-center bg-background rounded-2xl p-1 shrink-0 ring-1 ring-borderGlass">
+                                <button type="button" class="w-10 h-10 flex items-center justify-center text-textPrim/40 hover:text-textPrim hover:bg-input rounded-xl transition-all" onclick="document.getElementById('r630to800').stepDown(); document.getElementById('r630to800').dispatchEvent(new Event('input'))"><span class="material-symbols-outlined font-bold text-sm">remove</span></button>
+                                <input type="number" id="r630to800" min="0" max="100" class="w-10 bg-transparent text-center text-lg text-textPrim font-black border-0 focus:ring-0 p-0" placeholder="0">
+                                <button type="button" class="w-10 h-10 flex items-center justify-center text-textPrim/40 hover:text-textPrim hover:bg-input rounded-xl transition-all" onclick="document.getElementById('r630to800').stepUp(); document.getElementById('r630to800').dispatchEvent(new Event('input'))"><span class="material-symbols-outlined font-bold text-sm">add</span></button>
+                            </div>
+                        </div>
+                        <div class="h-px w-full bg-gradient-to-r from-transparent via-white/10 to-transparent"></div>
+                        <!-- Slot 3 -->
+                        <div class="flex items-center justify-between">
+                            <div class="space-y-1">
+                                <p class="text-sm text-textPrim/80 font-medium">8:00 - 10:00 AM</p>
+                                <span class="text-[10px] font-bold px-2 py-0.5 bg-surface text-textPrim/50 rounded-md uppercase ring-1 ring-borderGlass inline-block">2 pts/rnd</span>
+                            </div>
+                            <div class="flex items-center bg-background rounded-2xl p-1 shrink-0 ring-1 ring-borderGlass">
+                                <button type="button" class="w-10 h-10 flex items-center justify-center text-textPrim/40 hover:text-textPrim hover:bg-input rounded-xl transition-all" onclick="document.getElementById('r800to1000').stepDown(); document.getElementById('r800to1000').dispatchEvent(new Event('input'))"><span class="material-symbols-outlined font-bold text-sm">remove</span></button>
+                                <input type="number" id="r800to1000" min="0" max="100" class="w-10 bg-transparent text-center text-lg text-textPrim/80 font-bold border-0 focus:ring-0 p-0" placeholder="0">
+                                <button type="button" class="w-10 h-10 flex items-center justify-center text-textPrim/40 hover:text-textPrim hover:bg-input rounded-xl transition-all" onclick="document.getElementById('r800to1000').stepUp(); document.getElementById('r800to1000').dispatchEvent(new Event('input'))"><span class="material-symbols-outlined font-bold text-sm">add</span></button>
+                            </div>
+                        </div>
+                        <div class="h-px w-full bg-gradient-to-r from-transparent via-white/10 to-transparent"></div>
+                        <!-- Slot 4 -->
+                        <div class="flex items-center justify-between">
+                            <div class="space-y-1">
+                                <p class="text-sm text-textPrim/70 font-medium">10:00 AM - 9:00 PM</p>
+                                <span class="text-[10px] font-bold px-2 py-0.5 bg-input text-textPrim/40 rounded-md uppercase inline-block">1 pt/rnd</span>
+                            </div>
+                            <div class="flex items-center bg-background rounded-2xl p-1 shrink-0 ring-1 ring-borderGlass">
+                                <button type="button" class="w-10 h-10 flex items-center justify-center text-textPrim/30 hover:text-textPrim hover:bg-input rounded-xl transition-all" onclick="document.getElementById('r1000to2100').stepDown(); document.getElementById('r1000to2100').dispatchEvent(new Event('input'))"><span class="material-symbols-outlined font-bold text-sm">remove</span></button>
+                                <input type="number" id="r1000to2100" min="0" max="100" class="w-10 bg-transparent text-center text-lg text-textPrim/60 font-bold border-0 focus:ring-0 p-0" placeholder="0">
+                                <button type="button" class="w-10 h-10 flex items-center justify-center text-textPrim/30 hover:text-textPrim hover:bg-input rounded-xl transition-all" onclick="document.getElementById('r1000to2100').stepUp(); document.getElementById('r1000to2100').dispatchEvent(new Event('input'))"><span class="material-symbols-outlined font-bold text-sm">add</span></button>
+                            </div>
+                        </div>
+                        <div class="h-px w-full bg-gradient-to-r from-transparent via-white/10 to-transparent"></div>
+                        <!-- Slot 5 -->
+                        <div class="flex items-center justify-between">
+                            <div class="space-y-1">
+                                <p class="text-sm text-textPrim/60 font-medium">After 9:00 PM</p>
+                                <span class="text-[10px] font-bold px-2 py-0.5 bg-input text-textPrim/30 rounded-md uppercase inline-block">1 pt/rnd</span>
+                            </div>
+                            <div class="flex items-center bg-background rounded-2xl p-1 shrink-0 ring-1 ring-borderGlass">
+                                <button type="button" class="w-10 h-10 flex items-center justify-center text-textPrim/30 hover:text-textPrim hover:bg-input rounded-xl transition-all" onclick="document.getElementById('rAfter2100').stepDown(); document.getElementById('rAfter2100').dispatchEvent(new Event('input'))"><span class="material-symbols-outlined font-bold text-sm">remove</span></button>
+                                <input type="number" id="rAfter2100" min="0" max="100" class="w-10 bg-transparent text-center text-lg text-textPrim/40 font-bold border-0 focus:ring-0 p-0" placeholder="0">
+                                <button type="button" class="w-10 h-10 flex items-center justify-center text-textPrim/30 hover:text-textPrim hover:bg-input rounded-xl transition-all" onclick="document.getElementById('rAfter2100').stepUp(); document.getElementById('rAfter2100').dispatchEvent(new Event('input'))"><span class="material-symbols-outlined font-bold text-sm">add</span></button>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Book Reading -->
+                <section class="space-y-4">
+                    <div class="flex items-center justify-between px-2">
+                        <h2 class="text-lg text-textPrim/90 font-medium flex gap-2 items-center"><span class="material-symbols-outlined text-accent">auto_stories</span> Book Reading</h2>
+                    </div>
+                    <div class="glass-card rounded-3xl p-5 shadow-lg shadow-black/20">
+                        <div id="booksListForm" class="space-y-2 mb-2"></div>
+                        <button type="button" id="addBookBtn" class="w-full mt-2 py-3 rounded-2xl border border-dashed border-accent/30 bg-accent/5 text-accent font-medium text-sm hover:bg-accent/10 hover:border-accent/60 transition-colors flex justify-center items-center gap-2">
+                            <span class="material-symbols-outlined text-lg">add_circle</span> Add Reading Session
+                        </button>
+                    </div>
+                </section>
+
+                <!-- Mangal Aarti -->
+                <section class="space-y-4">
+                    <div class="glass-card rounded-3xl p-5 flex items-center justify-between shadow-lg shadow-black/20">
+                        <div>
+                            <h2 class="text-lg text-textPrim/90 font-medium flex items-center gap-2">
+                                <span class="material-symbols-outlined text-accent text-xl">local_fire_department</span>
+                                Mangal Aarti
+                            </h2>
+                            <p class="text-[11px] text-textPrim/50 mt-1 uppercase tracking-wider font-semibold ml-8">Did you attend today?</p>
+                        </div>
+                        <label class="switch">
+                            <input type="checkbox" id="aartiToggle">
+                            <span class="slider"></span>
+                        </label>
+                    </div>
+                </section>
+
+                <div class="flex gap-4 pt-2">
+                    <button type="submit" id="saveBtn" class="flex-1 py-4 bg-accent hover:bg-orange-400 text-black rounded-2xl font-black tracking-widest text-sm shadow-[0_0_20px_rgba(255,153,51,0.2)] hover:shadow-[0_0_30px_rgba(255,153,51,0.4)] active:scale-95 transition-all flex justify-center items-center gap-2 uppercase">
+                        Save Entry
+                    </button>
+                    <button type="button" id="editBtn" class="px-6 py-4 bg-input border border-borderGlass rounded-2xl text-textPrim/60 hover:text-textPrim hidden transition-colors" title="Unlock for editing">
+                        <span class="material-symbols-outlined text-lg">edit</span>
+                    </button>
+                </div>
+            </form>
+        </div>
+
+        <!-- Section: Insights -->
+        <div id="sectionInsights" class="mobile-panel space-y-6">
+            <div class="glass-card rounded-3xl p-5 shadow-lg shadow-black/20 mt-4 mb-2">
+                <div class="flex justify-between items-center mb-4">
+                    <h2 class="text-sm font-semibold flex items-center gap-2 text-textPrim/60 uppercase tracking-widest">
+                        <span class="material-symbols-outlined text-accent text-lg">calendar_month</span> This Week
+                    </h2>
+                </div>
+                <div id="weekStripGrid" class="flex justify-between gap-1 w-full"></div>
+                <div class="flex justify-center flex-wrap gap-x-4 mt-5 text-[9px] uppercase font-bold tracking-widest">
+                    <span class="text-green-500 flex items-center gap-1"><div class="w-2 h-2 rounded bg-green-500"></div> 80+</span>
+                    <span class="text-amber-500 flex items-center gap-1"><div class="w-2 h-2 rounded bg-amber-500"></div> 50-79</span>
+                    <span class="text-rose-500 flex items-center gap-1"><div class="w-2 h-2 rounded bg-rose-500"></div> <50</span>
+                </div>
+            </div>
+
+<div class="text-center"><button id="toggleCalBtn" class="text-xs uppercase tracking-widest font-bold text-textPrim/40 hover:text-textPrim transition-colors bg-input px-4 py-2 rounded-full ring-1 ring-borderGlass">Toggle Full Calendar</button></div>
+        <div id="sectionCalendar" class="space-y-6 block">
+            <div class="glass-card rounded-3xl p-6 shadow-lg shadow-black/20 mt-6 hidden">
+                <div class="flex justify-between items-center mb-8">
+                    <h2 class="text-xl font-semibold flex items-center gap-2 text-textPrim/90">
+                        <span class="material-symbols-outlined text-accent">calendar_month</span> Calendar
+                    </h2>
+                    <div class="flex items-center gap-3 bg-background rounded-full p-1 ring-1 ring-borderGlass">
+                        <button id="prevMonth" class="w-8 h-8 flex items-center justify-center rounded-full hover:bg-surface transition-colors text-textPrim/60 hover:text-textPrim"><i data-lucide="chevron-left" class="w-5 h-5"></i></button>
+                        <span id="monthYearDisplay" class="font-bold text-sm w-24 text-center tracking-wide"></span>
+                        <button id="nextMonth" class="w-8 h-8 flex items-center justify-center rounded-full hover:bg-surface transition-colors text-textPrim/60 hover:text-textPrim"><i data-lucide="chevron-right" class="w-5 h-5"></i></button>
+                    </div>
+                </div>
+                <div class="grid grid-cols-7 gap-1 text-center text-[10px] font-bold text-textPrim/40 mb-4 uppercase tracking-widest">
+                    <div>Sun</div><div>Mon</div><div>Tue</div><div>Wed</div><div>Thu</div><div>Fri</div><div>Sat</div>
+                </div>
+                <div id="calendarGrid" class="cal-grid gap-2"></div>
+                
+                <div class="flex justify-center flex-wrap gap-x-6 gap-y-3 mt-8 bg-background/50 rounded-2xl p-4 ring-1 ring-borderGlass">
+                    <div class="flex items-center gap-2 text-[10px] uppercase font-bold tracking-widest text-green-500"><div class="w-3 h-3 rounded bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.5)]"></div> 80+ PTS</div>
+                    <div class="flex items-center gap-2 text-[10px] uppercase font-bold tracking-widest text-amber-500"><div class="w-3 h-3 rounded bg-amber-500"></div> 50-79 PTS</div>
+                    <div class="flex items-center gap-2 text-[10px] uppercase font-bold tracking-widest text-rose-500"><div class="w-3 h-3 rounded bg-rose-500"></div> <50 PTS</div>
+                </div>
+            </div>
+        </div>
+
+        
+            <div class="grid grid-cols-2 gap-4 mt-2">
+                <div class="glass-card rounded-3xl p-6 text-center flex flex-col items-center shadow-lg shadow-black/20">
+                    <span class="material-symbols-outlined text-accent text-3xl mb-3" style="font-variation-settings: 'FILL' 1;">stars</span>
+                    <span id="statChanting" class="text-4xl font-black text-textPrim">—</span>
+                    <span class="text-[10px] text-textPrim/50 uppercase tracking-widest font-bold mt-2">Chanting</span>
+                </div>
+                <div class="glass-card rounded-3xl p-6 text-center flex flex-col items-center shadow-lg shadow-black/20">
+                    <span class="material-symbols-outlined text-tertiary text-3xl mb-3" style="font-variation-settings: 'FILL' 1;">auto_stories</span>
+                    <span id="statReading" class="text-4xl font-black text-textPrim">—</span>
+                    <span class="text-[10px] text-textPrim/50 uppercase tracking-widest font-bold mt-2">Reading</span>
+                </div>
+            </div>
+
+            <div class="glass-card rounded-3xl p-6 flex flex-col justify-center items-center shadow-lg shadow-black/20">
+                <span class="text-[10px] uppercase font-bold tracking-widest text-textPrim/40 mb-2 border border-borderGlass px-3 py-1 rounded-full">Total Rounds Chanted</span>
+                <div class="flex items-baseline gap-2 mt-2">
+                    <span id="separateTotalRounds" class="text-5xl font-black text-accent">—</span>
+                    <span id="separateExtraRounds" class="text-sm font-semibold text-textPrim/60"></span>
+                </div>
+            </div>
+
+            <div class="glass-card rounded-3xl p-6 shadow-lg shadow-black/20">
+                <h3 class="text-sm text-textPrim/80 font-semibold mb-6 flex items-center justify-between">
+                    <div class="flex items-center gap-2">
+                        <span class="material-symbols-outlined text-tertiary">trending_up</span> 14-Day Trend
+                    </div>
+                </h3>
+                <div class="w-full h-48 relative">
+                    <canvas id="lineChart"></canvas>
+                </div>
+            </div>
+
+            <div class="glass-card rounded-3xl p-6 shadow-lg shadow-black/20">
+                <h3 class="text-sm text-textPrim/80 font-semibold mb-6 flex items-center gap-2">
+                    <span class="material-symbols-outlined text-green-400">bar_chart</span> Weekly Average
+                </h3>
+                <div class="w-full h-40 relative">
+                    <canvas id="barChart"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <!-- Section: Leaderboard -->
+        <div id="sectionLeaderboard" class="mobile-panel space-y-6 pt-4">
+            <div class="text-center space-y-2 mb-10">
+                <h1 class="text-3xl font-black text-accent tracking-wider uppercase">Hall of Masters</h1>
+                <p class="text-xs font-medium text-textPrim/60 tracking-widest uppercase mb-4">Global Spiritual Discipline</p>
+                <div class="inline-block mt-4">
+                    <span id="leaderboardScope" class="px-4 py-1.5 bg-accent/10 text-accent border border-accent/30 rounded-full text-[10px] font-bold uppercase tracking-widest">This Month</span>
+                </div>
+            </div>
+
+            <!-- List -->
+            <div id="leaderboardList" class="flex flex-col gap-3"></div>
+        </div>
+
+        <!-- Section: Profile -->
+        <div id="sectionProfile" class="mobile-panel space-y-6">
+            <section class="flex flex-col items-center text-center space-y-5 pt-8">
+                <div class="relative">
+                    <div class="absolute inset-0 bg-accent blur-3xl opacity-30 rounded-full scale-125"></div>
+                    <div class="relative w-36 h-36 rounded-full p-1 bg-gradient-to-tr from-[#FF9933] to-[#c0c1ff]">
+                        <div class="w-full h-full rounded-full overflow-hidden border-4 border-[#0b1326] relative z-10">
+                            <label for="profileImageInput" class="cursor-pointer relative group block w-full h-full">
+                                <img alt="User Avatar" id="profileImageReal" class="w-full h-full object-cover transition-all group-hover:brightness-50" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDOmSeYBIaDeASutKpxxG-h9wBeJdVZDm5-H2oG_wthnnHmFbw16AMzQsuilz-9TK636NUOL5MBv1KuvA-s5kxYZuTStno5eniUZ1IlkLGpVbJh7-fIki5P0f60C9ng8Q9EpzYFn1cbG58iUDdVPBL0K5pI6XPyUHIM37nC8jHyuMvv0-Vz6JKFKHNM6RDm7nE0G8TFUnrBHGCbtKZTnVu-_5xO2XZfSYEMAA9Qn0MRK_dChFPy946IMCF2c69q_OUdWIZpXWzq3a_8"/>
+                                <div class="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                                    <span class="material-symbols-outlined text-textPrim drop-shadow-md pb-4">photo_camera</span>
+                                </div>
+                            </label>
+                            <input type="file" id="profileImageInput" accept="image/*" class="hidden">
+                        </div>
+                    </div>
+                </div>
+                <div>
+                    <h1 class="text-3xl font-black text-textPrim flex items-center justify-center gap-2 cursor-pointer group" onclick="document.getElementById('setProfileNameBtn').click()">
+                        <span id="profileTabName">Sadhaka</span>
+                        <span class="material-symbols-outlined text-lg text-textPrim/30 group-hover:text-textPrim transition-colors" title="Edit Name">edit</span>
+                    </h1>
+                    <p class="text-xs font-semibold text-accent tracking-widest uppercase mt-2" id="profileTabEmail">Logged Out</p>
+                </div>
+            </section>
+
+            <section class="grid grid-cols-2 gap-4 mt-4">
+                <div class="glass-card rounded-3xl p-6 flex flex-col items-center justify-center text-center shadow-lg shadow-black/20 relative overflow-hidden">
+                    <div class="absolute inset-0 bg-gradient-to-br from-rose-500/10 to-transparent"></div>
+                    <span class="text-[10px] font-bold uppercase tracking-widest text-accent mb-3 z-10">Current Streak</span>
+                    <div class="flex items-baseline gap-1 z-10 border-b-2 border-borderGlass pb-2">
+                        <span class="text-4xl font-black text-textPrim" id="statStreak">0</span>
+                        <span class="text-xs font-semibold uppercase text-textPrim/50">Days</span>
+                    </div>
+                </div>
+                <div class="glass-card rounded-3xl p-6 flex flex-col items-center justify-center text-center shadow-lg shadow-black/20 relative overflow-hidden">
+                    <div class="absolute inset-0 bg-gradient-to-br from-blue-500/10 to-transparent"></div>
+                    <span class="text-[10px] font-bold uppercase tracking-widest text-[#c0c1ff] mb-3 z-10">Total Points</span>
+                    <div class="flex items-baseline gap-1 z-10 border-b-2 border-borderGlass pb-2">
+                        <span class="text-4xl font-black text-textPrim" id="statTotal">—</span>
+                    </div>
+                </div>
+            </section>
+            
+            <div id="booksReadSection" class="glass-card rounded-3xl p-6 font-medium shadow-lg shadow-black/20" style="display: none;">
+                <div class="text-[10px] font-bold uppercase tracking-widest text-textPrim/60 mb-4 flex items-center gap-2">
+                    <span class="material-symbols-outlined text-accent text-lg">library_books</span> Today's Reading
+                </div>
+                <div id="booksReadList" class="space-y-3 font-semibold text-textPrim/90"></div>
+            </div>
+            
+            <!-- Circular Progress Target -->
+            <div class="glass-card progress-card rounded-3xl p-8 flex flex-col items-center shadow-lg shadow-black/20">
+                <h3 class="text-sm font-bold tracking-wider uppercase w-full flex items-center justify-center gap-2 text-textPrim/80">
+                    <span class="material-symbols-outlined text-green-400 text-xl">target</span> Monthly Target
+                </h3>
+                <div class="relative w-[160px] h-[160px] mt-6">
+                    <svg viewBox="0 0 100 100" class="w-full h-full transform -rotate-90 drop-shadow-[0_0_10px_rgba(255,153,51,0.2)]">
+                        <circle cx="50" cy="50" r="40" fill="none" stroke="rgba(255,255,255,0.05)" stroke-width="8"></circle>
+                        <circle id="progressCircle" cx="50" cy="50" r="40" fill="none" stroke="#FF9933" stroke-width="8" stroke-dasharray="251.2" stroke-dashoffset="251.2" stroke-linecap="round" class="transition-all duration-1000 ease-out"></circle>
+                    </svg>
+                    <div class="absolute inset-0 flex flex-col items-center justify-center">
+                        <span id="monthlyAvgText" class="text-3xl font-black text-textPrim">0%</span>
+                        <span class="text-[10px] font-bold uppercase tracking-widest text-accent mt-1">Average</span>
+                    </div>
+                </div>
+            </div>
+            
+            <section class="glass-card rounded-3xl overflow-hidden divide-y divide-white/5 mt-8 shadow-lg shadow-black/20 font-medium tracking-wide">
+                <!-- Additional settings that reference standard functionalities -->
+                <button onclick="document.getElementById('exportBtn').click()" class="w-full flex items-center justify-between p-5 hover:bg-input transition-all text-left group">
+                    <div class="flex items-center gap-4 text-textPrim/80">
+                        <span class="material-symbols-outlined text-textPrim/40 group-hover:text-[#c0c1ff] transition-colors">download</span>
+                        <span>Export Excel</span>
+                    </div>
+                    <span class="material-symbols-outlined text-textPrim/20 text-sm">chevron_right</span>
+                </button>
+                <button id="profileLogoutBtn" class="w-full flex items-center justify-between p-5 hover:bg-rose-500/10 transition-all text-left group">
+                    <div class="flex items-center gap-4 text-rose-400">
+                        <span class="material-symbols-outlined group-hover:scale-110 transition-transform">logout</span>
+                        <span class="font-bold">Logout</span>
+                    </div>
+                </button>
+            </section>
+        </div>
+    </main>
+
+    <!-- Bottom Navigation Bar -->
+    <nav class="fixed bottom-0 left-0 w-full z-50 flex justify-between items-center px-4 pt-2 pb-5 bg-[rgba(5,10,20,0.95)] backdrop-blur-2xl border-t border-borderGlass rounded-t-[32px] bottom-nav-tabs shadow-[0_-10px_40px_rgba(0,0,0,0.3)]">
+        <button class="nav-btn active flex-1 flex flex-col items-center justify-center transition-all duration-300 py-3 relative group" data-section-target="sectionTrack">
+            <span class="material-symbols-outlined text-2xl group-hover:-translate-y-1 transition-transform" style="font-variation-settings: 'FILL' 1;">dashboard</span>
+            <span class="text-[9px] font-bold tracking-widest uppercase mt-1 opacity-100 group-hover:opacity-100 transition-opacity">Track</span>
+            <div class="absolute -bottom-2 w-1 h-1 bg-accent rounded-full opacity-0 scale-0 group-[.active]:opacity-100 group-[.active]:scale-100 transition-all"></div>
+        </button>
+        <button class="nav-btn flex-1 flex flex-col items-center justify-center transition-all duration-300 py-3 relative group" data-section-target="sectionInsights">
+            <span class="material-symbols-outlined text-2xl group-hover:-translate-y-1 transition-transform">bar_chart</span>
+            <span class="text-[9px] font-bold tracking-widest uppercase mt-1 opacity-70 group-hover:opacity-100 transition-opacity">Insights</span>
+            <div class="absolute -bottom-2 w-1 h-1 bg-accent rounded-full opacity-0 scale-0 group-[.active]:opacity-100 group-[.active]:scale-100 transition-all"></div>
+        </button>
+        <button class="nav-btn flex-1 flex flex-col items-center justify-center transition-all duration-300 py-3 relative group" data-section-target="sectionLeaderboard">
+            <span class="material-symbols-outlined text-2xl group-hover:-translate-y-1 transition-transform">emoji_events</span>
+            <span class="text-[9px] font-bold tracking-widest uppercase mt-1 opacity-70 group-hover:opacity-100 transition-opacity">Rank</span>
+            <div class="absolute -bottom-2 w-1 h-1 bg-accent rounded-full opacity-0 scale-0 group-[.active]:opacity-100 group-[.active]:scale-100 transition-all"></div>
+        </button>
+        <button class="nav-btn flex-1 flex flex-col items-center justify-center transition-all duration-300 py-3 relative group" data-section-target="sectionProfile">
+            <span class="material-symbols-outlined text-2xl group-hover:-translate-y-1 transition-transform">person</span>
+            <span class="text-[9px] font-bold tracking-widest uppercase mt-1 opacity-70 group-hover:opacity-100 transition-opacity">Profile</span>
+            <div class="absolute -bottom-2 w-1 h-1 bg-accent rounded-full opacity-0 scale-0 group-[.active]:opacity-100 group-[.active]:scale-100 transition-all"></div>
+        </button>
+    </nav>
+
+    <!-- UI Helpers -->
+    <button id="mobileSaveFab" class="hidden" type="button"></button>
+    <div id="toast" class="toast">
+        <div class="flex items-center gap-2">
+            <div class="w-6 h-6 rounded-full bg-green-500/20 text-green-400 flex flex-center items-center justify-center"><i data-lucide="check" class="w-3 h-3"></i></div>
+            <span class="toast-text font-bold text-sm tracking-wide"></span>
+        </div>
+    </div>
+    <script>
+        // ============================================
+        
+        // Real-time Dashboard Updates
+        window.updateMainRing = function() {
+            const val = parseInt(document.getElementById('dailyScoreText')?.innerText || '0');
+            const totalDash = 691;
+            const offset = Math.max(0, totalDash - (val / 100) * totalDash);
+            const circle = document.getElementById('dailyScoreCircle');
+            if (circle) circle.style.strokeDashoffset = offset;
+        };
+        
+        function updateAddBookBtnState() {
+            const btn = document.getElementById('addBookBtn');
+            if(btn && _globalIsFormLocked) {
+                btn.style.opacity = '0.35';
+                btn.style.pointerEvents = 'none';
+            } else if(btn) {
+                btn.style.opacity = '1';
+                btn.style.pointerEvents = 'auto';
+            }
+        }
+        
+        function getWeeklyAverageScore(entries, end) {
+            let total = 0;
+            let count = 0;
+            for(let i=0; i<7; i++){
+                let d = new Date(end);
+                d.setDate(d.getDate() - i);
+                let ds = formatDate(d);
+                if(entries.has(ds)) {
+                    total += getEntryScore(entries.get(ds));
+                }
+                count++;
+            }
+            return count > 0 ? (total/count).toFixed(1) : 0;
+        }
+        
+        // Expose a helper to calculate live score since _origUpdateFormUI overrides might struggle to inject properly
+        function recalculateLiveScore() {
+            const chantingObj = {
+                before630: parseInt(document.getElementById('rBefore630')?.value) || 0,
+                from630to800: parseInt(document.getElementById('r630to800')?.value) || 0,
+                from800to1000: parseInt(document.getElementById('r800to1000')?.value) || 0,
+                from1000to2100: parseInt(document.getElementById('r1000to2100')?.value) || 0,
+                after2100: parseInt(document.getElementById('rAfter2100')?.value) || 0
+            };
+            let mins = 0;
+            document.querySelectorAll('.book-mins').forEach(inp => mins += parseInt(inp.value) || 0);
+            
+            const isAarti = document.getElementById('aartiToggle')?.checked || false;
+            if (typeof calculateScore === 'function') {
+                const calculated = calculateScore(chantingObj, mins, isAarti);
+                const score = calculated ? calculated.total : 0;
+                
+                const txt = document.getElementById('dailyScoreText');
+                if (txt) txt.innerText = score;
+                if(window.updateMainRing) window.updateMainRing();
+            }
+        }
+
+        const _origUpdateFormUI = updateFormUI;
+        let _globalIsFormLocked = false;
+        updateFormUI = function(isDirty) {
+            _origUpdateFormUI(isDirty);
+            _globalIsFormLocked = !isDirty && db.has(selectedDateStr) && selectedDateStr !== formatDate(new Date());
+            updateAddBookBtnState();
+            
+            // After loading entry, update the big ring
+            setTimeout(() => {
+                recalculateLiveScore();
+                // update Profile tab data quickly
+                if(document.getElementById('profileTabName')) {
+                    document.getElementById('profileTabName').innerText = profileName || 'Sadhaka';
+                }
+                if(document.getElementById('profileTabEmail')){
+                    document.getElementById('profileTabEmail').innerText = currentUser ? currentUser.email : "Logged Out - Local Data Only";
+                }
+            }, 100);
+        };
+        
+        // Ensure ring updates on real-time changes using input events
+        setTimeout(() => {
+            ['rBefore630', 'r630to800', 'r800to1000', 'r1000to2100', 'rAfter2100', 'aartiToggle'].forEach(id => {
+                const el = document.getElementById(id);
+                if (el) {
+                    el.addEventListener('input', recalculateLiveScore);
+                    el.addEventListener('change', recalculateLiveScore);
+                }
+            });
+            // also hook up book list mutation if possible
+            const list = document.getElementById('booksListForm');
+            if(list) {
+                list.addEventListener('input', recalculateLiveScore);
+            }
+            
+            const pb = document.getElementById('profileLogoutBtn');
+            if (pb) {
+                pb.addEventListener('click', () => {
+                    const b = document.getElementById('authBtn');
+                    if(b) b.click();
+                });
+            }
+        }, 1000);
+
+        // 1. STATE MANAGEMENT (localStorage)
+
+        // Weekly Strip Logic
+        function renderWeekStrip() {
+            const grid = document.getElementById('weekStripGrid');
+            if(!grid) return;
+            grid.innerHTML = '';
+            
+            // Last 7 days including today
+            for (let i = 6; i >= 0; i--) {
+                const d = new Date();
+                d.setDate(d.getDate() - i);
+                const dateStr = formatDate(d);
+                const entry = db.get(dateStr);
+                let score = 0;
+                if(entry) {
+                    if (typeof calculateScore === 'function') {
+                        const calculated = calculateScore({
+                            before630: entry.chanting?.before630 || 0,
+                            from630to800: entry.chanting?.from630to800 || 0,
+                            from800to1000: entry.chanting?.from800to1000 || 0,
+                            from1000to2100: entry.chanting?.from1000to2100 || 0,
+                            after2100: entry.chanting?.after2100 || 0
+                        }, entry.readingMins || 0, entry.mangalAarti || false);
+                        score = calculated ? calculated.total : 0;
+                    }
+                }
+                
+                const cell = document.createElement('div');
+                cell.className = 'flex flex-col items-center justify-center py-2 px-1 rounded-xl cursor-pointer transition-all border border-transparent';
+                cell.style.flex = "1";
+                cell.style.minWidth = "0";
+                
+                if (score >= 80) cell.className += ' bg-green-500/20 text-green-500 border-green-500/30';
+                else if (score >= 50) cell.className += ' bg-amber-500/10 text-amber-500 border-amber-500/20';
+                else if (score > 0) cell.className += ' bg-rose-500/10 text-rose-500 border-rose-500/20';
+                else cell.className += ' bg-input text-textPrim/40 border-borderGlass';
+                
+                if (dateStr === selectedDateStr) {
+                    cell.className += ' ring-2 ring-accent shadow-[0_0_10px_rgba(255,153,51,0.3)] bg-surface';
+                }
+                
+                const dayName = new Intl.DateTimeFormat('en-US', { weekday: 'short' }).format(d).toUpperCase().substring(0,3);
+                const dayNum = d.getDate();
+                
+                cell.innerHTML = '<span class="text-[9px] font-bold mb-1 opacity-60">' + dayName + '</span><span class="text-sm font-black">' + dayNum + '</span>';
+                
+                cell.addEventListener('click', () => {
+                    selectedDateStr = dateStr;
+                    renderCalendar();
+                    renderWeekStrip();
+                    updateFormUI();
+                    
+                    // switch to track tab if they tapped it while on Insights to edit
+                    const tabs = Array.from(document.querySelectorAll('.nav-btn'));
+                    const trackTab = tabs.find(t => t.dataset.sectionTarget === 'sectionTrack');
+                    if(trackTab) {
+                        trackTab.click();
+                        const t = document.getElementById('toast');
+                        if(t) {
+                            t.querySelector('.toast-text').innerText = 'Switched to ' + dateStr;
+                            t.classList.add('visible');
+                            setTimeout(() => t.classList.remove('visible'), 2000);
+                        }
+                    }
+                });
+                grid.appendChild(cell);
+            }
+        }
+        
+        // update renderCalendar to also call renderWeekStrip
+        const _origRenderCal = renderCalendar;
+        renderCalendar = function() {
+            _origRenderCal();
+            renderWeekStrip();
+        };
+        
+        const toggler = document.getElementById('toggleCalBtn');
+        if(toggler) {
+            toggler.addEventListener('click', () => {
+                const calWrapper = document.getElementById('sectionCalendar');
+                const cal = calWrapper ? calWrapper.firstElementChild : null;
+                if(cal) {
+                    if(cal.classList.contains('hidden')) {
+                        cal.classList.remove('hidden');
+                        toggler.innerText = "Hide Full Calendar";
+                    } else {
+                        cal.classList.add('hidden');
+                        toggler.innerText = "Toggle Full Calendar";
+                    }
+                }
+            });
+        }
+
+
+        // Profile Image Handling
+        const PROFILE_IMAGE_KEY = 'sadhanaProfileImage';
+        const imgInput = document.getElementById('profileImageInput');
+        const imgReal = document.getElementById('profileImageReal');
+        const imgHeader = document.getElementById('headerProfileImage');
+        
+        function loadProfileImage() {
+            const savedImg = localStorage.getItem(PROFILE_IMAGE_KEY);
+            if (savedImg) {
+                if (imgReal) imgReal.src = savedImg;
+                if (imgHeader) imgHeader.src = savedImg;
+            }
+        }
+        
+        if (imgInput) {
+            imgInput.addEventListener('change', function(e) {
+                const file = e.target.files[0];
+                if (!file) return;
+                
+                const reader = new FileReader();
+                reader.onload = function(event) {
+                    const base64Str = event.target.result;
+                    localStorage.setItem(PROFILE_IMAGE_KEY, base64Str);
+                    if (imgReal) imgReal.src = base64Str;
+                    if (imgHeader) imgHeader.src = base64Str;
+                    
+                    const t = document.getElementById('toast');
+                    if(t) {
+                        t.querySelector('.toast-text').innerText = 'Profile picture updated';
+                        t.classList.add('visible');
+                        setTimeout(() => t.classList.remove('visible'), 3000);
+                    }
+                };
+                reader.readAsDataURL(file);
+            });
+        }
+        
+        loadProfileImage();
+
+        // ============================================
+        const PROFILE_NAME_KEY = 'sadhanaProfileName';
+        const PROFILE_NAME_LOCK_KEY = 'sadhanaProfileNameLocked';
+        const PROFILE_LIST_KEY = 'sadhanaProfiles'; // legacy migration support
+        const ACTIVE_PROFILE_KEY = 'sadhanaActiveProfileId'; // legacy migration support
+        const DATA_KEY_PREFIX = 'sadhanaData:';
+        const LEGACY_DATA_KEY = 'sadhanaData';
+
+        const db = new Map();
+        let profileName = '';
+        let isProfileNameLocked = false;
+        let currentDate = new Date();
+        let displayMonthDate = new Date();
+
+        const formatDate = (date) => {
+            const d = new Date(date);
+            const month = '' + (d.getMonth() + 1);
+            const day = '' + d.getDate();
+            const year = d.getFullYear();
+            return [year, month.padStart(2, '0'), day.padStart(2, '0')].join('-');
+        };
+
+        let selectedDateStr = formatDate(currentDate);
+
+        let lineChartInst = null;
+        let barChartInst = null;
+        let firebaseApp = null;
+        let firebaseAuth = null;
+        let isFirebaseReady = false;
+        let currentUser = null;
+        let lastSyncStatus = 'offline';
+
+        // initFirebaseAuth is defined below after all helper functions
+
+        function getProfileDataKey() {
+            return LEGACY_DATA_KEY;
+        }
+
+        function safeParseJSON(raw, fallback) {
+            try {
+                return raw ? JSON.parse(raw) : fallback;
+            } catch (e) {
+                return fallback;
+            }
+        }
+
+        function persistSingleProfileMeta() {
+            localStorage.setItem(PROFILE_NAME_KEY, profileName);
+            localStorage.setItem(PROFILE_NAME_LOCK_KEY, isProfileNameLocked ? '1' : '0');
+        }
+
+        function loadProfileEntries() {
+            const raw = localStorage.getItem(getProfileDataKey());
+            const parsed = safeParseJSON(raw, {});
+            const map = new Map();
+
+            for (const [key, value] of Object.entries(parsed)) {
+                map.set(key, value);
+            }
+
+            return map;
+        }
+
+        function saveProfileEntries(map = db) {
+            const obj = {};
+            for (const [key, value] of map.entries()) {
+                obj[key] = value;
+            }
+            localStorage.setItem(getProfileDataKey(), JSON.stringify(obj));
+        }
+
+        function ensureSingleProfileState() {
+            // Migrate old multi-profile data into one dataset (active profile wins).
+            const existingSingleData = localStorage.getItem(LEGACY_DATA_KEY);
+            if (!existingSingleData) {
+                const legacyProfiles = safeParseJSON(localStorage.getItem(PROFILE_LIST_KEY), []);
+                const legacyActiveId = localStorage.getItem(ACTIVE_PROFILE_KEY);
+                const sourceProfileId = legacyActiveId || (Array.isArray(legacyProfiles) && legacyProfiles[0] ? legacyProfiles[0].id : null);
+                if (sourceProfileId) {
+                    const migratedData = localStorage.getItem(`${DATA_KEY_PREFIX}${sourceProfileId}`);
+                    if (migratedData) {
+                        localStorage.setItem(LEGACY_DATA_KEY, migratedData);
+                    }
+                    const sourceProfile = Array.isArray(legacyProfiles) ? legacyProfiles.find(p => p.id === sourceProfileId) : null;
+                    if (sourceProfile && sourceProfile.name && !localStorage.getItem(PROFILE_NAME_KEY)) {
+                        localStorage.setItem(PROFILE_NAME_KEY, sourceProfile.name);
+                    }
+                }
+            }
+
+            profileName = (localStorage.getItem(PROFILE_NAME_KEY) || '').trim();
+            isProfileNameLocked = localStorage.getItem(PROFILE_NAME_LOCK_KEY) === '1';
+            if (!profileName && currentUser?.email) {
+                profileName = currentUser.email.split('@')[0];
+            }
+            if (!profileName) {
+                profileName = 'Sadhaka';
+            }
+            persistSingleProfileMeta();
+        }
+
+        function getActiveProfile() {
+            return { name: profileName };
+        }
+
+        function updateProfileNameUI() {
+            const nameText = document.getElementById('profileNameText');
+            const btn = document.getElementById('setProfileNameBtn');
+            if (!nameText || !btn) return;
+            nameText.innerText = profileName || 'Set name';
+            btn.style.display = isProfileNameLocked ? 'none' : 'inline-flex';
+        }
+
+        function promptAndSetProfileName(forcePrompt = false) {
+            if (isProfileNameLocked && !forcePrompt) {
+                return;
+            }
+            const currentValue = profileName && profileName !== 'Sadhaka' ? profileName : '';
+            const entered = prompt('Set your profile name (one-time):', currentValue);
+            if (entered === null) return;
+            const trimmed = entered.trim();
+            if (!trimmed) {
+                alert('Profile name cannot be empty.');
+                return;
+            }
+            profileName = trimmed;
+            isProfileNameLocked = true;
+            persistSingleProfileMeta();
+            updateProfileNameUI();
+            renderLeaderboard();
+        }
+
+        function setupQuickMenu() {
+            const menuBtn = document.getElementById('quickMenuBtn');
+            const panel = document.getElementById('quickMenuPanel');
+            if (!menuBtn || !panel) return;
+
+            const closeMenu = () => {
+                panel.classList.remove('open');
+                panel.setAttribute('aria-hidden', 'true');
+                menuBtn.setAttribute('aria-expanded', 'false');
+            };
+
+            const openMenu = () => {
+                panel.classList.add('open');
+                panel.setAttribute('aria-hidden', 'false');
+                menuBtn.setAttribute('aria-expanded', 'true');
+            };
+
+            menuBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                if (panel.classList.contains('open')) {
+                    closeMenu();
+                } else {
+                    openMenu();
+                }
+            });
+
+            panel.addEventListener('click', (e) => {
+                e.stopPropagation();
+            });
+
+            document.addEventListener('click', closeMenu);
+            document.addEventListener('keydown', (e) => {
+                if (e.key === 'Escape') {
+                    closeMenu();
+                }
+            });
+
+            // allow other handlers to open the same menu
+            window.__openQuickMenu = openMenu;
+        }
+
+        
+        function setupMobileTabs() {
+            const tabs = Array.from(document.querySelectorAll('.nav-btn'));
+            if (!tabs.length) return;
+            const sections = [
+                document.getElementById('sectionTrack'),
+                document.getElementById('sectionCalendar'),
+                document.getElementById('sectionInsights'),
+                document.getElementById('sectionLeaderboard'),
+                document.getElementById('sectionProfile')
+            ].filter(Boolean);
+
+            const applyMobileSection = (targetId) => {
+                sections.forEach(section => {
+                    section.classList.remove('active');
+                });
+                const activeSection = document.getElementById(targetId);
+                if (activeSection) {
+                    activeSection.classList.add('active');
+                }
+                
+                if (targetId === 'sectionTrack') {
+                    if (window.updateMainRing) window.updateMainRing();
+                }
+            };
+
+            applyMobileSection('sectionTrack');
+
+            tabs.forEach((tab) => {
+                tab.addEventListener('click', () => {
+                    const targetId = tab.dataset.sectionTarget;
+                    if (!targetId) return;
+
+                    tabs.forEach(btn => {
+                        btn.classList.remove('active');
+                        // Fix style properties
+                        btn.style.color = '#64748b'; 
+                        btn.style.background = 'transparent';
+                        btn.style.borderRadius = '0';
+                        btn.style.boxShadow = 'none';
+                    });
+                    
+                    tab.classList.add('active');
+                    tab.style.color = '#FF9933';
+                    
+                    applyMobileSection(targetId);
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                });
+            });
+        }
+function updateSyncUI() {
+            const chip = document.getElementById('syncStatusChip');
+            const text = document.getElementById('syncStatusText');
+            if (!chip || !text) return;
+
+            chip.classList.remove('ok', 'warn', 'offline');
+
+            if (!isFirebaseReady) {
+                chip.classList.add('offline');
+                text.innerText = 'Local only';
+                return;
+            }
+            if (!currentUser) {
+                chip.classList.add('offline');
+                text.innerText = 'Offline';
+                return;
+            }
+            if (lastSyncStatus === 'synced') {
+                chip.classList.add('ok');
+                text.innerText = 'Synced';
+                return;
+            }
+            if (lastSyncStatus === 'failed') {
+                chip.classList.add('warn');
+                text.innerText = 'Sync issue';
+                return;
+            }
+            chip.classList.add('warn');
+            text.innerText = 'Syncing';
+        }
+
+        function updateAuthUI() {
+            const label = document.getElementById('authStatusLabel');
+            const btn = document.getElementById('authBtn');
+            const icon = document.getElementById('authBtnIcon');
+            if (!label || !btn || !icon) return;
+
+            if (!isFirebaseReady) {
+                label.innerText = 'Local mode';
+                btn.title = 'Firebase config missing';
+                icon.setAttribute('data-lucide', 'cloud-off');
+                updateSyncUI();
+                if (window.lucide) lucide.createIcons();
+                return;
+            }
+
+            if (currentUser) {
+                const display = currentUser.displayName || currentUser.email || 'Signed in';
+                label.innerText = display;
+                btn.title = 'Logout';
+                icon.setAttribute('data-lucide', 'log-out');
+            } else {
+                label.innerText = 'Not signed in';
+                btn.title = 'Login';
+                icon.setAttribute('data-lucide', 'log-in');
+            }
+
+            updateSyncUI();
+            if (window.lucide) lucide.createIcons();
+        }
+
+        async function ensureFirebaseUserProfile(user) {
+            if (!user) return;
+            if (!isProfileNameLocked) {
+                const fallbackName = user.displayName || (user.email ? user.email.split('@')[0] : '');
+                if (fallbackName) {
+                    profileName = fallbackName;
+                }
+            }
+            persistSingleProfileMeta();
+            updateProfileNameUI();
+            await loadEntriesFromCloud();
+        }
+
+        function initFirebaseAuth() {
+            try {
+                const cfg = window.FIREBASE_CONFIG || {};
+                const hasConfig = !!(cfg.apiKey && cfg.authDomain && cfg.projectId && cfg.appId);
+
+                if (!window.firebase || !hasConfig) {
+                    isFirebaseReady = false;
+                    updateAuthUI();
+                    return;
+                }
+
+                firebaseApp = firebase.apps.length ? firebase.app() : firebase.initializeApp(cfg);
+                firebaseAuth = firebase.auth(firebaseApp);
+                isFirebaseReady = true;
+
+                firebaseAuth.onAuthStateChanged(async (user) => {
+                    currentUser = user || null;
+                    lastSyncStatus = currentUser ? 'syncing' : 'offline';
+                    if (user) {
+                        await ensureFirebaseUserProfile(user);
+                        initFirestore();
+                    } else {
+                        ensureSingleProfileState();
+                    }
+                    updateAuthUI();
+                    updateProfileNameUI();
+                    renderCalendar();
+                    updateFormUI();
+                    updateCharts();
+                    renderLeaderboard();
+                    updateSyncUI();
+                });
+            } catch (err) {
+                console.warn('Firebase initialization failed:', err);
+                isFirebaseReady = false;
+                lastSyncStatus = 'offline';
+                updateAuthUI();
+            }
+        }
+
+        async function loadFromLocalStorage() {
+            ensureSingleProfileState();
+            db.clear();
+
+            const activeEntries = loadProfileEntries();
+            for (const [key, value] of activeEntries.entries()) {
+                db.set(key, value);
+            }
+            
+            // Re-sync with cloud after local load
+            if (currentUser && firestore) {
+                await loadEntriesFromCloud();
+            }
+        }
+
+        function saveToLocalStorage() {
+            try {
+                saveProfileEntries(db);
+            } catch (e) {
+                console.warn('Failed to save to localStorage:', e);
+            }
+        }
+
+        // ============================================
+        // 2. FIRESTORE SYNC & LEADERBOARD
+        // ============================================
+        
+        let firestore = null;
+        let unsubscribeLeaderboard = null;
+        let globalLeaderboardCache = [];
+        
+        function initFirestore() {
+            if (!isFirebaseReady || !window.firebase || !firebase.firestore) return;
+            firestore = firebase.firestore();
+            fetchGlobalLeaderboard();
+        }
+        
+        async function syncEntryToCloud(dateStr, entryData) {
+            if (!firestore || !currentUser) return;
+            try {
+                lastSyncStatus = 'syncing';
+                updateSyncUI();
+                // Save specific daily entry
+                await firestore.collection('users')
+                    .doc(currentUser.uid)
+                    .collection('entries')
+                    .doc(dateStr)
+                    .set(entryData);
+                    
+                // Update user's aggregated leaderboard document
+                await updateCloudLeaderboardStats();
+                lastSyncStatus = 'synced';
+                updateSyncUI();
+            } catch (err) {
+                console.error("Error syncing to Firestore:", err);
+                lastSyncStatus = 'failed';
+                updateSyncUI();
+            }
+        }
+        
+        async function loadEntriesFromCloud() {
+            if (!firestore || !currentUser) return;
+            try {
+                const snapshot = await firestore.collection('users')
+                    .doc(currentUser.uid)
+                    .collection('entries')
+                    .get();
+                    
+                let updated = false;
+                snapshot.forEach(doc => {
+                    const data = doc.data();
+                    db.set(doc.id, data);
+                    updated = true;
+                });
+                
+                if (updated) {
+                    saveToLocalStorage(); // sync back to local
+                    renderCalendar();
+                    updateFormUI();
+                    updateCharts();
+                }
+            } catch (err) {
+                console.error("Error loading specific entries from Firestore:", err);
+            }
+        }
+        
+        async function updateCloudLeaderboardStats() {
+            if (!firestore || !currentUser) return;
+            try {
+                // calculate current stats locally
+                const userEntries = loadProfileEntries();
+                const now = new Date();
+                const streak = calculateStreakFromEntries(userEntries, now);
+                const monthScore = getMonthlyScore(userEntries, now.getFullYear(), now.getMonth());
+                
+                let allTimeScore = 0;
+                userEntries.forEach(value => { allTimeScore += getEntryScore(value); });
+                
+                // push to a public leaderboard collection
+                await firestore.collection('leaderboard').doc(currentUser.uid).set({
+                    uid: currentUser.uid,
+                    name: profileName || "Anonymous",
+                    monthScore: monthScore,
+                    allTimeScore: allTimeScore,
+                    streak: streak,
+                    entryCount: userEntries.size,
+                    lastUpdated: firebase.firestore.FieldValue.serverTimestamp()
+                });
+            } catch (err) {
+                console.error("Leaderboard stats update failed:", err);
+            }
+        }
+        
+        function fetchGlobalLeaderboard() {
+            if (!firestore) return;
+            
+            if (unsubscribeLeaderboard) unsubscribeLeaderboard();
+            
+            unsubscribeLeaderboard = firestore.collection('leaderboard')
+                .orderBy('monthScore', 'desc')
+                .limit(10)
+                .onSnapshot(snapshot => {
+                    globalLeaderboardCache = [];
+                    snapshot.forEach(doc => {
+                        globalLeaderboardCache.push(doc.data());
+                    });
+                    renderLeaderboard();
+                }, err => {
+                    console.error("Live leaderboard error:", err);
+                });
+        }
+
+        // ============================================
+        // 3. SCORING ENGINE
+        // ============================================
+        function calculateScore(chantingObj, readingMins, aartiAttended) {
+            let chantingScore = 0;
+            let totalRounds = 0;
+            let extraRounds = 0;
+
+            if (chantingObj) {
+                let r1 = chantingObj.before630 || 0;
+                let r2 = chantingObj.from630to800 || 0;
+                let r3 = chantingObj.from800to1000 || 0;
+                let r4 = chantingObj.from1000to2100 || 0;
+                let r5 = chantingObj.after2100 || 0;
+
+                totalRounds = r1 + r2 + r3 + r4 + r5;
+                extraRounds = Math.max(0, totalRounds - 16);
+
+                let remaining = 16;
+                let take = 0;
+
+                take = Math.min(remaining, r1);
+                chantingScore += take * 5;
+                remaining -= take;
+
+                take = Math.min(remaining, r2);
+                chantingScore += take * 4;
+                remaining -= take;
+
+                take = Math.min(remaining, r3);
+                chantingScore += take * 2;
+                remaining -= take;
+
+                take = Math.min(remaining, r4);
+                chantingScore += take * 1;
+                remaining -= take;
+
+                take = Math.min(remaining, r5);
+                chantingScore += take * 1;
+                remaining -= take;
+            }
+
+            let readingScore = 0;
+            const mins = readingMins || 0;
+            if (mins > 0 && mins < 15) readingScore = -20;
+            else if (mins >= 15 && mins < 30) readingScore = 5;
+            else if (mins >= 30 && mins < 45) readingScore = 10;
+            else if (mins >= 45) readingScore = 15;
+
+            let aartiScore = aartiAttended ? 5 : 0;
+
+            let total = chantingScore + readingScore + aartiScore;
+            let finalTotal = Math.min(Math.max(total, 0), 100);
+
+            return {
+                total: Math.round(finalTotal),
+                chanting: Math.round(chantingScore),
+                reading: readingScore,
+                aarti: aartiScore,
+                totalRounds: totalRounds,
+                extraRounds: extraRounds
+            };
+        }
+
+        // ============================================
+        // 3. MOCK DATA GENERATOR
+        // ============================================
+        function generateMockData() {
+            const today = new Date();
+            for (let i = 0; i < 45; i++) {
+                const d = new Date(today);
+                d.setDate(d.getDate() - i);
+                const dateStr = formatDate(d);
+
+                const isGoodDay = Math.random() > 0.3;
+                const readingMins = isGoodDay ? 30 : Math.floor(Math.random() * 60);
+                const aarti = isGoodDay;
+
+                let chantingObj = {
+                    before630: isGoodDay ? 16 : Math.floor(Math.random() * 4),
+                    from630to800: Math.floor(Math.random() * 4),
+                    from800to1000: 0,
+                    from1000to2100: 0,
+                    after2100: 0
+                };
+
+                const scores = calculateScore(chantingObj, readingMins, aarti);
+
+                db.set(dateStr, {
+                    chanting: chantingObj, readingMins, bookName: isGoodDay ? 'Bhagavad Gita' : '', aarti, scores
+                });
+            }
+            db.delete(formatDate(new Date()));
+        }
+
+        function getEntryScore(entry) {
+            return entry && entry.scores ? entry.scores.total || 0 : 0;
+        }
+
+        function calculateStreakFromEntries(entriesMap, referenceDate = new Date()) {
+            let streak = 0;
+            const todayStr = formatDate(referenceDate);
+            const yesterday = new Date(referenceDate);
+            yesterday.setDate(yesterday.getDate() - 1);
+            const yesterdayStr = formatDate(yesterday);
+            const startDateStr = entriesMap.has(todayStr) ? todayStr : yesterdayStr;
+            const checkDate = new Date(startDateStr + 'T00:00:00');
+
+            while (true) {
+                const dateStr = formatDate(checkDate);
+                const data = entriesMap.get(dateStr);
+                if (data && data.scores && data.scores.total > 0) {
+                    streak++;
+                    checkDate.setDate(checkDate.getDate() - 1);
+                } else {
+                    break;
+                }
+            }
+
+            return streak;
+        }
+
+        function getMonthlyScore(entriesMap, year, month) {
+            let total = 0;
+            entriesMap.forEach((value, dateStr) => {
+                const date = new Date(dateStr + 'T00:00:00');
+                if (date.getFullYear() === year && date.getMonth() === month && value && value.scores) {
+                    total += value.scores.total || 0;
+                }
+            });
+            return total;
+        }
+
+        function renderLeaderboard() {
+            const container = document.getElementById('leaderboardList');
+            if (!container) return;
+
+            let renderRows = [];
+
+            if (firestore && globalLeaderboardCache.length > 0) {
+                // Cloud Leaderboard Render
+                renderRows = globalLeaderboardCache.map((doc, idx) => {
+                    const isCurrentUser = currentUser && doc.uid === currentUser.uid;
+                    return `
+                        <div class="leaderboard-row ${idx === 0 ? 'top-1' : ''}" style="${isCurrentUser ? 'background:var(--bg-base-hover);' : ''}">
+                            <div class="leaderboard-rank">${idx + 1}</div>
+                            <div class="leaderboard-meta">
+                                <div class="leaderboard-name">${doc.name}${isCurrentUser ? ' · You' : ''}</div>
+                                <div class="leaderboard-sub">${doc.entryCount || 0} entries · ${doc.streak || 0} day streak</div>
+                            </div>
+                            <div class="leaderboard-score">
+                                <strong>${doc.monthScore || 0}</strong>
+                                <span>this month · ${doc.allTimeScore || 0} total</span>
+                            </div>
+                        </div>
+                    `;
+                });
+            } else {
+                // Local Single-Profile Render (Fallback)
+                const now = new Date();
+                const year = now.getFullYear();
+                const month = now.getMonth();
+                const entriesMap = loadProfileEntries();
+                let allTimeScore = 0;
+                entriesMap.forEach(value => {
+                    allTimeScore += getEntryScore(value);
+                });
+                renderRows = [`
+                    <div class="leaderboard-row top-1" style="background:var(--bg-base-hover);">
+                        <div class="leaderboard-rank">1</div>
+                        <div class="leaderboard-meta">
+                            <div class="leaderboard-name">${profileName || 'You'} · You</div>
+                            <div class="leaderboard-sub">${entriesMap.size} entries · ${calculateStreakFromEntries(entriesMap, now)} day streak</div>
+                        </div>
+                        <div class="leaderboard-score">
+                            <strong>${getMonthlyScore(entriesMap, year, month)}</strong>
+                            <span>this month · ${allTimeScore} total</span>
+                        </div>
+                    </div>
+                `];
+            }
+
+            if (renderRows.length === 0) {
+                container.innerHTML = '<div class="leaderboard-empty">No data yet.</div>';
+                return;
+            }
+
+            container.innerHTML = renderRows.join('');
+        }
+
+        function addBookRow(bookName = '', bookMins = '') {
+            const container = document.getElementById('booksListForm');
+            const row = document.createElement('div');
+            row.className = 'book-entry-row';
+            row.innerHTML = `
+                <input type="text" class="form-input book-name" placeholder="Book name" value="${bookName}">
+                <input type="number" class="form-input book-mins" min="0" placeholder="mins" value="${bookMins}">
+                <button type="button" class="book-remove-btn" title="Remove"><i data-lucide="x" style="width:14px;height:14px;"></i></button>
+            `;
+            row.querySelector('.book-remove-btn').addEventListener('click', () => {
+                row.remove();
+                // Ensure at least one row remains
+                if (container.querySelectorAll('.book-entry-row').length === 0) {
+                    addBookRow();
+                }
+            });
+            container.appendChild(row);
+            if (window.lucide) lucide.createIcons();
+        }
+
+        function getBooksFromForm() {
+            const rows = document.querySelectorAll('#booksListForm .book-entry-row');
+            const books = [];
+            rows.forEach(row => {
+                const name = row.querySelector('.book-name').value.trim();
+                const mins = parseInt(row.querySelector('.book-mins').value) || 0;
+                if (name || mins > 0) {
+                    books.push({ name: name || 'Untitled', mins });
+                }
+            });
+            return books;
+        }
+
+        document.getElementById('addBookBtn').addEventListener('click', () => {
+            addBookRow();
+        });
+
+        function updateFormUI() {
+            const dateStr = selectedDateStr;
+            const data = db.get(dateStr) || {
+                chanting: { before630: '', from630to800: '', from800to1000: '', from1000to2100: '', after2100: '' },
+                readingMins: '', bookName: '', aarti: false
+            };
+
+            // Backwards compatibility for mock data
+            if (data.rounds !== undefined) {
+                data.chanting = { before630: '', from630to800: '', from800to1000: '', from1000to2100: '', after2100: '' };
+                const t = data.timeFactor;
+                if(t === 'before630') data.chanting.before630 = data.rounds;
+                else if(t === '630to800') data.chanting.from630to800 = data.rounds;
+                else if(t === '800to1000') data.chanting.from800to1000 = data.rounds;
+                else if(t === '1000to2100') data.chanting.from1000to2100 = data.rounds;
+                else if(t === 'after2100') data.chanting.after2100 = data.rounds;
+            }
+
+            document.getElementById('rBefore630').value = data.chanting?.before630 ?? '';
+            document.getElementById('r630to800').value = data.chanting?.from630to800 ?? '';
+            document.getElementById('r800to1000').value = data.chanting?.from800to1000 ?? '';
+            document.getElementById('r1000to2100').value = data.chanting?.from1000to2100 ?? '';
+            document.getElementById('rAfter2100').value = data.chanting?.after2100 ?? '';
+            document.getElementById('aartiToggle').checked = data.aarti ?? false;
+
+            // Populate books list
+            const booksContainer = document.getElementById('booksListForm');
+            booksContainer.innerHTML = '';
+            const books = data.books || (data.bookName ? [{ name: data.bookName, mins: data.readingMins || 0 }] : []);
+            if (books.length === 0) {
+                addBookRow();
+            } else {
+                books.forEach(b => addBookRow(b.name, b.mins));
+            }
+
+            const isLocked = !!(data.scores);
+            const inputIds = ['rBefore630', 'r630to800', 'r800to1000', 'r1000to2100', 'rAfter2100', 'aartiToggle'];
+            inputIds.forEach(id => {
+                document.getElementById(id).disabled = isLocked;
+            });
+            // Lock book rows
+            booksContainer.querySelectorAll('.form-input').forEach(el => el.disabled = isLocked);
+            booksContainer.querySelectorAll('.book-remove-btn').forEach(el => el.style.display = isLocked ? 'none' : '');
+            document.getElementById('addBookBtn').disabled = isLocked;
+
+            const saveBtn = document.getElementById('saveBtn');
+            const mobileFab = document.getElementById('mobileSaveFab');
+            const editBtn = document.getElementById('editBtn');
+            if (isLocked) {
+                saveBtn.disabled = true;
+                saveBtn.innerHTML = '<i data-lucide="lock" style="width:18px;height:18px;margin-bottom:-3px;margin-right:5px;"></i> Entry Locked';
+                saveBtn.style.background = 'var(--bg-card)';
+                saveBtn.style.color = 'var(--text-muted)';
+                saveBtn.style.border = '1px solid var(--border-subtle)';
+                saveBtn.style.cursor = 'not-allowed';
+                if (mobileFab) {
+                    mobileFab.disabled = true;
+                    mobileFab.innerHTML = '<i data-lucide="lock" style="width:16px;height:16px;"></i> Locked';
+                }
+                if (editBtn) editBtn.style.display = 'flex';
+            } else {
+                saveBtn.disabled = false;
+                saveBtn.innerHTML = '<i data-lucide="save" style="width:18px;height:18px;margin-bottom:-3px;margin-right:5px;"></i> Save Entry';
+                saveBtn.style.background = 'var(--accent)';
+                saveBtn.style.color = '#ffffff';
+                saveBtn.style.border = 'none';
+                saveBtn.style.cursor = 'pointer';
+                if (mobileFab) {
+                    mobileFab.disabled = false;
+                    mobileFab.innerHTML = '<i data-lucide="save" style="width:16px;height:16px;"></i> Save Today';
+                }
+                if (editBtn) editBtn.style.display = 'none';
+            }
+            if (window.lucide) lucide.createIcons();
+
+            const dateObj = new Date(dateStr + 'T00:00:00');
+            const options = { weekday: 'short', month: 'short', day: 'numeric' };
+            document.getElementById('selectedDateDisplay').innerText = dateObj.toLocaleDateString(undefined, options);
+
+            updateScoreCards(dateStr);
+        }
+
+        function updateScoreCards(dateStr) {
+            const data = db.get(dateStr);
+            const t = document.getElementById('statTotal');
+            const c = document.getElementById('statChanting');
+            const r = document.getElementById('statReading');
+            const sepTotal = document.getElementById('separateTotalRounds');
+            const sepExtra = document.getElementById('separateExtraRounds');
+
+            if (data && data.scores) {
+                t.innerText = data.scores.total;
+                c.innerText = data.scores.chanting;
+                r.innerText = data.scores.reading;
+
+                if (sepTotal) {
+                    sepTotal.innerText = data.scores.totalRounds || 0;
+                    sepExtra.innerText = data.scores.extraRounds > 0 ? `(+${data.scores.extraRounds} Extra)` : '';
+                }
+
+                // Gradient color coding
+                t.className = 'stat-value total';
+                if (data.scores.total >= 80) t.classList.add('color-green');
+                else if (data.scores.total >= 50) t.classList.add('color-amber');
+                else t.classList.add('color-red');
+            } else {
+                t.innerText = '—';
+                c.innerText = '—';
+                r.innerText = '—';
+                t.className = 'stat-value total';
+                if (sepTotal) {
+                    sepTotal.innerText = '—';
+                    sepExtra.innerText = '';
+                }
+            }
+
+            // Books Read Section
+            const booksSection = document.getElementById('booksReadSection');
+            const booksList = document.getElementById('booksReadList');
+            const books = data?.books || (data?.bookName ? [{ name: data.bookName, mins: data.readingMins || 0}] : []);
+            if (books.length > 0 && books.some(b => b.name)) {
+                booksSection.style.display = 'block';
+                booksList.innerHTML = books.map(b => `
+                    <div class="book-read-item">
+                        <span class="book-read-name">
+                            <i data-lucide="book-open" style="width:14px;height:14px;"></i>
+                            ${b.name || 'Untitled'}
+                        </span>
+                        <span class="book-read-mins">${b.mins} min${b.mins !== 1 ? 's' : ''}</span>
+                    </div>
+                `).join('');
+                if (window.lucide) lucide.createIcons();
+            } else {
+                booksSection.style.display = 'none';
+                booksList.innerHTML = '';
+            }
+
+            calculateAndDisplayStreak();
+        }
+
+        // saveCurrentEntry is handled via the entryForm submit listener below
+        
+        async function editCurrentEntry() {
+            const dateStr = selectedDateStr;
+            const data = db.get(dateStr);
+            if (data) {
+                delete data.scores;
+                db.set(dateStr, data);
+                saveToLocalStorage();
+                
+                if (currentUser && firestore) {
+                    await syncEntryToCloud(dateStr, data); 
+                }
+                
+                updateFormUI();
+                renderCalendar();
+            }
+        }
+
+        document.getElementById('editBtn').addEventListener('click', editCurrentEntry);
+
+        function renderCalendar() {
+            const grid = document.getElementById('calendarGrid');
+            const monthYear = document.getElementById('monthYearDisplay');
+            grid.innerHTML = '';
+
+            const year = displayMonthDate.getFullYear();
+            const month = displayMonthDate.getMonth();
+
+            const firstDay = new Date(year, month, 1);
+            const lastDay = new Date(year, month + 1, 0);
+            const daysInMonth = lastDay.getDate();
+            const startDayOfWeek = firstDay.getDay();
+
+            monthYear.innerText = new Intl.DateTimeFormat('en-US', { month: 'short', year: 'numeric' }).format(displayMonthDate);
+
+            for (let i = 0; i < startDayOfWeek; i++) {
+                const empty = document.createElement('div');
+                empty.className = 'cal-day empty';
+                grid.appendChild(empty);
+            }
+
+            const todayStr = formatDate(new Date());
+
+            for (let i = 1; i <= daysInMonth; i++) {
+                const dateStr = formatDate(new Date(year, month, i));
+                const data = db.get(dateStr);
+
+                const cell = document.createElement('div');
+                cell.className = 'cal-day';
+
+                let scoreClass = 'no-data';
+                let dotHTML = '';
+
+                if (data && data.scores) {
+                    const s = data.scores.total;
+                    if (s >= 80) {
+                        scoreClass = 'score-high';
+                        dotHTML = '<div class="score-dot" style="background:#10b981;box-shadow:0 0 6px rgba(16,185,129,0.6);"></div>';
+                    } else if (s >= 50) {
+                        scoreClass = 'score-mid';
+                        dotHTML = '<div class="score-dot" style="background:#f59e0b;box-shadow:0 0 6px rgba(245,158,11,0.6);"></div>';
+                    } else {
+                        scoreClass = 'score-low';
+                        dotHTML = '<div class="score-dot" style="background:#f43f5e;box-shadow:0 0 6px rgba(244,63,94,0.6);"></div>';
+                    }
+                }
+
+                cell.classList.add(scoreClass);
+
+                if (dateStr === selectedDateStr) cell.classList.add('selected');
+
+                let todayDot = dateStr === todayStr ? '<div class="today-dot"></div>' : '';
+
+                cell.innerHTML = `${i}${todayDot}${dotHTML}`;
+
+                cell.addEventListener('click', () => {
+                    selectedDateStr = dateStr;
+                    renderCalendar();
+                    updateFormUI();
+                });
+
+                grid.appendChild(cell);
+            }
+        }
+
+        // ============================================
+        // 5. ANALYTICS & CHARTS
+        // ============================================
+        function calculateAndDisplayStreak() {
+            document.getElementById('statStreak').innerText = calculateStreakFromEntries(db);
+        }
+
+        function getChartColors() {
+            const isDark = document.documentElement.classList.contains('dark');
+            return {
+                text: isDark ? '#a09888' : '#6b5c4c',
+                grid: isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.04)',
+                line: '#f97316',
+                fill: isDark ? 'rgba(249, 115, 22, 0.08)' : 'rgba(249, 115, 22, 0.12)',
+                bar1: '#10b981',
+                bar2: '#f59e0b',
+                bar3: '#8b5cf6'
+            };
+        }
+
+        function updateCharts() {
+            const colors = getChartColors();
+            Chart.defaults.color = colors.text;
+            Chart.defaults.font.family = "'Outfit', sans-serif";
+
+            // --- Line Chart (Last 14 days) ---
+            const labelsLine = [];
+            const dataLine = [];
+
+            for (let i = 13; i >= 0; i--) {
+                const d = new Date();
+                d.setDate(d.getDate() - i);
+                const dateStr = formatDate(d);
+                labelsLine.push(d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' }));
+
+                const entry = db.get(dateStr);
+                dataLine.push(entry && entry.scores ? entry.scores.total : 0);
+            }
+
+            const ctxLine = document.getElementById('lineChart').getContext('2d');
+            if (lineChartInst) lineChartInst.destroy();
+
+            // Gradient fill
+            const lineGrad = ctxLine.createLinearGradient(0, 0, 0, 220);
+            lineGrad.addColorStop(0, 'rgba(249, 115, 22, 0.25)');
+            lineGrad.addColorStop(1, 'rgba(249, 115, 22, 0.0)');
+
+            lineChartInst = new Chart(ctxLine, {
+                type: 'line',
+                data: {
+                    labels: labelsLine,
+                    datasets: [{
+                        label: 'Total Score',
+                        data: dataLine,
+                        borderColor: colors.line,
+                        backgroundColor: lineGrad,
+                        borderWidth: 2.5,
+                        tension: 0.4,
+                        fill: true,
+                        pointBackgroundColor: '#fff',
+                        pointBorderColor: colors.line,
+                        pointBorderWidth: 2,
+                        pointRadius: 4,
+                        pointHoverRadius: 7,
+                        pointHoverBackgroundColor: colors.line,
+                        pointHoverBorderColor: '#fff'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    interaction: { mode: 'index', intersect: false },
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            backgroundColor: 'rgba(0,0,0,0.75)',
+                            titleFont: { weight: '600' },
+                            padding: 12,
+                            cornerRadius: 10,
+                            displayColors: false
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true, max: 100,
+                            grid: { color: colors.grid, drawBorder: false },
+                            border: { display: false },
+                            ticks: { padding: 8, font: { size: 11 } }
+                        },
+                        x: {
+                            grid: { display: false },
+                            border: { display: false },
+                            ticks: { font: { size: 10 }, maxRotation: 0 }
+                        }
+                    }
+                }
+            });
+
+            // --- Bar Chart (Weekly Averages for last 4 weeks) ---
+            const labelsBar = ['Week 4', 'Week 3', 'Week 2', 'This Week'];
+            const dataBar = [0, 0, 0, 0];
+
+            for (let w = 0; w < 4; w++) {
+                let sum = 0;
+                for (let d = 0; d < 7; d++) {
+                    const dateObj = new Date();
+                    dateObj.setDate(dateObj.getDate() - (w * 7 + d));
+                    const entry = db.get(formatDate(dateObj));
+                    if (entry && entry.scores) {
+                        sum += entry.scores.total;
+                    }
+                }
+                dataBar[3 - w] = Math.round(sum / 7);
+            }
+
+            const ctxBar = document.getElementById('barChart').getContext('2d');
+            if (barChartInst) barChartInst.destroy();
+
+            barChartInst = new Chart(ctxBar, {
+                type: 'bar',
+                data: {
+                    labels: labelsBar,
+                    datasets: [{
+                        label: 'Avg Score',
+                        data: dataBar,
+                        backgroundColor: dataBar.map(val =>
+                            val >= 80 ? 'rgba(16, 185, 129, 0.7)' :
+                            val >= 50 ? 'rgba(245, 158, 11, 0.7)' :
+                            'rgba(244, 63, 94, 0.7)'
+                        ),
+                        borderRadius: 8,
+                        borderSkipped: false,
+                        barPercentage: 0.6
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            backgroundColor: 'rgba(0,0,0,0.75)',
+                            padding: 12,
+                            cornerRadius: 10,
+                            displayColors: false
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true, max: 100,
+                            grid: { color: colors.grid, drawBorder: false },
+                            border: { display: false },
+                            ticks: { padding: 8, font: { size: 11 } }
+                        },
+                        x: {
+                            grid: { display: false },
+                            border: { display: false },
+                            ticks: { font: { size: 10 } }
+                        }
+                    }
+                }
+            });
+
+            // --- Monthly Progress Circle ---
+            updateMonthlyProgress();
+        }
+
+        function updateMonthlyProgress() {
+            const date = new Date();
+            const year = date.getFullYear();
+            const month = date.getMonth();
+            let daysPassed = date.getDate();
+
+            let totalScore = 0;
+            for (let i = 1; i <= daysPassed; i++) {
+                const dateStr = formatDate(new Date(year, month, i));
+                const data = db.get(dateStr);
+                if (data && data.scores) {
+                    totalScore += data.scores.total;
+                }
+            }
+
+            const maxPossibleSoFar = daysPassed * 100;
+            const percentage = maxPossibleSoFar === 0 ? 0 : Math.round((totalScore / maxPossibleSoFar) * 100);
+
+            document.getElementById('monthlyAvgText').innerText = `${percentage}%`;
+
+            const circle = document.getElementById('progressCircle');
+            const circumference = 2 * Math.PI * 40;
+            const offset = circumference - (percentage / 100) * circumference;
+
+            // Color based on performance
+            let strokeColor;
+            if (percentage >= 80) strokeColor = '#10b981';
+            else if (percentage >= 50) strokeColor = '#f59e0b';
+            else strokeColor = '#f43f5e';
+
+            circle.setAttribute('stroke', strokeColor);
+
+            setTimeout(() => {
+                circle.style.strokeDashoffset = offset;
+            }, 200);
+        }
+
+        // ============================================
+        // 6. EVENT LISTENERS & INIT
+        // ============================================
+        function showToast() {
+            const toast = document.getElementById('toast');
+            toast.classList.add('visible');
+            setTimeout(() => {
+                toast.classList.remove('visible');
+            }, 3000);
+        }
+
+        document.getElementById('entryForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const chantingObj = {
+                before630: parseInt(document.getElementById('rBefore630').value) || 0,
+                from630to800: parseInt(document.getElementById('r630to800').value) || 0,
+                from800to1000: parseInt(document.getElementById('r800to1000').value) || 0,
+                from1000to2100: parseInt(document.getElementById('r1000to2100').value) || 0,
+                after2100: parseInt(document.getElementById('rAfter2100').value) || 0
+            };
+            const books = getBooksFromForm();
+            const totalReadingMins = books.reduce((sum, b) => sum + b.mins, 0);
+            const aarti = document.getElementById('aartiToggle').checked;
+
+            if (chantingObj.before630 < 0 || chantingObj.from630to800 < 0 || chantingObj.from800to1000 < 0 || chantingObj.from1000to2100 < 0 || chantingObj.after2100 < 0) {
+                alert("Values cannot be negative.");
+                return;
+            }
+
+            const scores = calculateScore(chantingObj, totalReadingMins, aarti);
+
+            const entryData = {
+                chanting: chantingObj, books, readingMins: totalReadingMins, aarti, scores
+            };
+
+            db.set(selectedDateStr, entryData);
+            saveToLocalStorage();
+
+            // Cloud sync
+            if (currentUser && firestore) {
+                await syncEntryToCloud(selectedDateStr, entryData);
+            }
+
+            renderCalendar();
+            updateScoreCards(selectedDateStr);
+            updateFormUI();
+            updateCharts();
+            renderLeaderboard();
+            showToast();
+        });
+
+        document.getElementById('setProfileNameBtn').addEventListener('click', () => {
+            promptAndSetProfileName(true);
+        });
+
+        document.getElementById('mobileSaveFab').addEventListener('click', () => {
+            const saveBtn = document.getElementById('saveBtn');
+            if (!saveBtn || saveBtn.disabled) return;
+            document.getElementById('entryForm').requestSubmit();
+        });
+
+        document.getElementById('authBtn').addEventListener('click', async () => {
+            if (!isFirebaseReady) {
+                alert('Firebase is not configured yet. Update firebase-config.js first.');
+                return;
+            }
+
+            try {
+                if (currentUser) {
+                    await firebaseAuth.signOut();
+                    return;
+                }
+                window.location.href = 'login.html';
+            } catch (err) {
+                alert(`Authentication failed: ${err.message || 'Unknown error'}`);
+            }
+        });
+
+        document.getElementById('prevMonth').addEventListener('click', () => {
+            displayMonthDate.setMonth(displayMonthDate.getMonth() - 1);
+            renderCalendar();
+        });
+
+        document.getElementById('nextMonth').addEventListener('click', () => {
+            displayMonthDate.setMonth(displayMonthDate.getMonth() + 1);
+            renderCalendar();
+        });
+
+        // Theme Toggle
+        const themeToggleBtn = document.getElementById('themeToggle');
+        const htmlEl = document.documentElement;
+
+        if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+            htmlEl.classList.remove('light');
+            htmlEl.classList.add('dark');
+            document.getElementById('sunIcon').style.display = '';
+            document.getElementById('moonIcon').style.display = 'none';
+        }
+
+        themeToggleBtn.addEventListener('click', () => {
+            htmlEl.classList.toggle('dark');
+            htmlEl.classList.toggle('light');
+            const isDark = htmlEl.classList.contains('dark');
+
+            document.getElementById('moonIcon').style.display = isDark ? 'none' : '';
+            document.getElementById('sunIcon').style.display = isDark ? '' : 'none';
+
+            updateCharts();
+        });
+
+        // Export Button
+        document.getElementById("exportBtn").addEventListener("click", exportToExcel);
+
+        function exportToExcel() {
+            const data = [];
+            const sortedDates = Array.from(db.keys()).sort((a, b) => new Date(a) - new Date(b));
+
+            sortedDates.forEach(date => {
+                const value = db.get(date);
+                const day = new Date(date).toLocaleDateString('en-US', { weekday: 'short' });
+
+                const chanting = value.chanting || {};
+
+                const books = value.books || [];
+                const bookNames = books.map(b => b.name).join(", ");
+                const totalMins = books.reduce((sum, b) => sum + (b.mins || 0), 0);
+
+                data.push({
+                    Date: date,
+                    Day: day,
+                    "Before 6:30": chanting.before630 || 0,
+                    "6:30–8:00": chanting.from630to800 || 0,
+                    "8:00–10:00": chanting.from800to1000 || 0,
+                    "10:00–9:00": chanting.from1000to2100 || 0,
+                    "After 9:00": chanting.after2100 || 0,
+                    "Total Rounds": value.scores?.totalRounds || 0,
+                    "Chanting Score": value.scores?.chanting || 0,
+                    "Books": bookNames,
+                    "Reading Mins": totalMins,
+                    "Reading Score": value.scores?.reading || 0,
+                    "Aarti": value.scores?.aarti || 0,
+                    "Total Score": value.scores?.total || 0
+                });
+            });
+
+            if (data.length === 0) {
+                alert("No data to export!");
+                return;
+            }
+
+            const worksheet = XLSX.utils.json_to_sheet(data);
+            const workbook = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(workbook, worksheet, "Sadhana");
+
+            const exportName = profileName || 'Profile';
+            XLSX.writeFile(workbook, `Sadhana_Tracker_${exportName.replace(/[^a-z0-9_-]+/gi, '_')}.xlsx`);
+        }
+
+        // Init
+        window.addEventListener('load', () => {
+            loadFromLocalStorage();
+            initFirebaseAuth();
+            setupQuickMenu();
+            setupMobileTabs();
+            lucide.createIcons();
+            updateAuthUI();
+            updateProfileNameUI();
+            if (!isProfileNameLocked) {
+                setTimeout(() => {
+                    promptAndSetProfileName(false);
+                }, 250);
+            }
+            renderCalendar();
+            updateFormUI();
+            updateCharts();
+            renderLeaderboard();
+        });
+
+        // Service Worker Registration
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('service-worker.js')
+                .then(() => console.log('Service Worker registered'))
+                .catch(err => console.warn('SW registration failed:', err));
+        }
+    </script>
+</body>
+</html>
