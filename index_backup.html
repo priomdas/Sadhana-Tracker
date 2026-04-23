@@ -1,0 +1,3212 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sadhana Tracker — Daily Spiritual Journal</title>
+    <meta name="description" content="Track your daily spiritual practices including Japa chanting, scripture reading, and Mangal Aarti attendance with beautiful analytics.">
+    <meta name="theme-color" content="#f97316">
+    <link rel="manifest" href="manifest.json">
+
+    <!-- Local Chart.js -->
+    <script src="libs/chart.min.js"></script>
+    
+    <!-- Local Lucide Icons -->
+    <script src="libs/lucide.min.js"></script>
+
+    <!-- Local SheetJS for Excel export -->
+    <script src="libs/xlsx.full.min.js"></script>
+
+    <!-- Firebase (compat SDK for plain script setup) -->
+    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+    <script src="firebase-config.js"></script>
+
+    <!-- Local Google Fonts -->
+    <link href="fonts/outfit.css" rel="stylesheet">
+
+    <style>
+        /* ============================================
+           0. CSS CUSTOM PROPERTIES & DESIGN TOKENS
+           ============================================ */
+        :root {
+            /* Primary Palette — Warm Saffron / Amber */
+            --accent-h: 28;
+            --accent-s: 95%;
+            --accent: hsl(var(--accent-h), var(--accent-s), 54%);
+            --accent-light: hsl(var(--accent-h), 100%, 68%);
+            --accent-dark: hsl(var(--accent-h), 90%, 42%);
+            --accent-glow: hsla(var(--accent-h), 100%, 60%, 0.35);
+
+            /* Backgrounds */
+            --bg-base: #faf4eb;
+            --bg-surface: rgba(255, 255, 255, 0.62);
+            --bg-surface-hover: rgba(255, 255, 255, 0.78);
+            --bg-input: rgba(255, 255, 255, 0.7);
+            --bg-section: rgba(0, 0, 0, 0.025);
+            --bg-card: rgba(255, 255, 255, 0.45);
+
+            /* Borders */
+            --border-glass: rgba(255, 255, 255, 0.55);
+            --border-subtle: rgba(0, 0, 0, 0.06);
+
+            /* Text */
+            --text-primary: #1a1208;
+            --text-secondary: #6b5c4c;
+            --text-muted: #9a8b7a;
+            --text-main: #1a1208;
+
+            /* Shadows */
+            --shadow-card: 0 8px 32px -8px rgba(180, 120, 60, 0.10), 0 2px 8px -2px rgba(0,0,0,0.05);
+            --shadow-card-hover: 0 20px 60px -15px rgba(180, 120, 60, 0.20), 0 4px 12px -4px rgba(0,0,0,0.08);
+            --shadow-glow: 0 0 40px -8px var(--accent-glow);
+
+            /* Orb colors */
+            --orb-1: radial-gradient(circle, hsla(28, 100%, 70%, 0.28), transparent 70%);
+            --orb-2: radial-gradient(circle, hsla(340, 80%, 65%, 0.16), transparent 70%);
+            --orb-3: radial-gradient(circle, hsla(50, 100%, 65%, 0.22), transparent 70%);
+
+            /* Stat accent colors */
+            --stat-score-accent: linear-gradient(135deg, #f97316, #ea580c);
+            --stat-chant-accent: linear-gradient(135deg, #8b5cf6, #7c3aed);
+            --stat-read-accent: linear-gradient(135deg, #10b981, #059669);
+            --stat-streak-accent: linear-gradient(135deg, #f43f5e, #e11d48);
+
+            /* Misc */
+            --radius-card: 24px;
+            --radius-input: 14px;
+            --transition-base: 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            --blur: 22px;
+        }
+
+        .dark {
+            --bg-base: #86dbe3; /* Light blue presentation background */
+            --bg-surface: #121212; /* True mobile frame black */
+            --bg-surface-hover: #1e1e1e;
+            --bg-input: #1a1a1a;
+            --bg-section: #1c1c1c;
+            --bg-card: #161616;
+            --border-glass: rgba(255, 255, 255, 0.05);
+            --border-subtle: rgba(255, 255, 255, 0.05);
+            --text-primary: #ffffff;
+            --text-secondary: #aaaaaa;
+            --text-muted: #888888;
+            --text-main: #ffffff;
+            --accent-h: 190;
+            --accent-s: 70%;
+            --accent: #5ce1e6; /* The cyan blue from the image */
+            --accent-light: #8cedf1;
+            --accent-dark: #37b7bc;
+            --shadow-card: none;
+            --shadow-card-hover: none;
+            --shadow-glow: 0 0 20px -5px hsla(190, 70%, 50%, 0.3);
+            /* Hide orbs in mobile view */
+            --orb-1: transparent;
+            --orb-2: transparent;
+            --orb-3: transparent;
+        }
+
+        /* ============================================
+           1. GLOBAL RESETS & BASE
+           ============================================ */
+        *, *::before, *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        html {
+            scroll-behavior: smooth;
+        }
+
+        body {
+            font-family: 'Outfit', sans-serif;
+            background: var(--bg-base);
+            color: var(--text-primary);
+            min-height: 100vh;
+            overflow-x: hidden;
+            transition: background 0.6s ease, color 0.4s ease;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+            padding-bottom: 3rem;
+        }
+
+        /* Noise texture overlay for premium feel */
+        body::after {
+            content: '';
+            position: fixed;
+            inset: 0;
+            z-index: 0;
+            pointer-events: none;
+            opacity: 0.018;
+            background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+            background-size: 180px;
+        }
+        .dark body::after, .dark::after { opacity: 0.025; }
+
+        /* ============================================
+           2. ANIMATED BACKGROUND ORBS
+           ============================================ */
+        .bg-orbs {
+            position: fixed;
+            inset: 0;
+            z-index: 0;
+            pointer-events: none;
+            overflow: hidden;
+        }
+
+        .bg-orbs .orb {
+            position: absolute;
+            border-radius: 50%;
+            filter: blur(60px);
+            will-change: transform;
+        }
+
+        .bg-orbs .orb-1 {
+            width: 600px; height: 600px;
+            background: var(--orb-1);
+            top: -10%; left: -5%;
+            animation: orbFloat1 18s ease-in-out infinite;
+        }
+        .bg-orbs .orb-2 {
+            width: 500px; height: 500px;
+            background: var(--orb-2);
+            top: 40%; right: -10%;
+            animation: orbFloat2 22s ease-in-out infinite;
+        }
+        .bg-orbs .orb-3 {
+            width: 450px; height: 450px;
+            background: var(--orb-3);
+            bottom: -5%; left: 30%;
+            animation: orbFloat3 20s ease-in-out infinite;
+        }
+
+        @keyframes orbFloat1 {
+            0%, 100% { transform: translate(0, 0) scale(1); }
+            33% { transform: translate(80px, 60px) scale(1.1); }
+            66% { transform: translate(-40px, 30px) scale(0.95); }
+        }
+        @keyframes orbFloat2 {
+            0%, 100% { transform: translate(0, 0) scale(1); }
+            33% { transform: translate(-60px, -50px) scale(1.05); }
+            66% { transform: translate(50px, 40px) scale(0.9); }
+        }
+        @keyframes orbFloat3 {
+            0%, 100% { transform: translate(0, 0) scale(1); }
+            33% { transform: translate(50px, -40px) scale(1.08); }
+            66% { transform: translate(-70px, 20px) scale(0.92); }
+        }
+
+        /* ============================================
+           3. GLASSMORPHISM CARD SYSTEM
+           ============================================ */
+        .glass-card {
+            background: var(--bg-surface);
+            backdrop-filter: blur(var(--blur));
+            -webkit-backdrop-filter: blur(var(--blur));
+            border: 1px solid var(--border-glass);
+            border-radius: var(--radius-card);
+            box-shadow: var(--shadow-card);
+            transition: box-shadow 0.4s cubic-bezier(0.22, 1, 0.36, 1), transform 0.4s cubic-bezier(0.22, 1, 0.36, 1), background var(--transition-base);
+        }
+
+        .glass-card:hover {
+            box-shadow: var(--shadow-card-hover);
+        }
+
+        .glass-card-glow {
+            position: relative;
+        }
+        .glass-card-glow::before {
+            content: '';
+            position: absolute;
+            inset: -1px;
+            border-radius: inherit;
+            background: linear-gradient(135deg, var(--accent-light), transparent 40%, transparent 60%, hsla(280, 70%, 60%, 0.25));
+            z-index: -1;
+            opacity: 0;
+            transition: opacity 0.5s ease;
+        }
+        .glass-card-glow:hover::before {
+            opacity: 1;
+        }
+
+        /* ============================================
+           4. NAVIGATION BAR
+           ============================================ */
+        .top-nav {
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            background: var(--bg-surface);
+            backdrop-filter: blur(24px);
+            -webkit-backdrop-filter: blur(24px);
+            border-bottom: 1px solid var(--border-glass);
+            transition: background 0.4s ease;
+        }
+
+        .nav-inner {
+            max-width: 1280px;
+            margin: 0 auto;
+            padding: 0 1.5rem;
+            height: 64px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .nav-brand {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .nav-profile-area {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-left: auto;
+            justify-content: flex-end;
+            position: relative;
+        }
+
+        .profile-action {
+            flex-shrink: 0;
+        }
+
+        .auth-pill {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 0.4rem 0.75rem;
+            border-radius: 999px;
+            border: 1px solid var(--border-glass);
+            background: var(--bg-section);
+            color: var(--text-secondary);
+            font-size: 0.76rem;
+            font-weight: 600;
+            max-width: 240px;
+        }
+
+        .auth-pill span {
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .nav-logo {
+            width: 40px; height: 40px;
+            background: linear-gradient(135deg, var(--accent), var(--accent-dark));
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            box-shadow: 0 4px 16px -4px var(--accent-glow);
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+        .nav-logo:hover {
+            transform: rotate(-8deg) scale(1.08);
+            box-shadow: 0 6px 24px -4px var(--accent-glow);
+        }
+
+        .nav-title {
+            font-size: 1.25rem;
+            font-weight: 700;
+            letter-spacing: -0.02em;
+            background: linear-gradient(135deg, var(--text-primary), var(--text-secondary));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .theme-toggle {
+            width: 42px; height: 42px;
+            border: none;
+            background: var(--bg-section);
+            border-radius: 12px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--text-secondary);
+            transition: all var(--transition-base);
+            position: relative;
+            overflow: hidden;
+        }
+        .theme-toggle:hover {
+            background: var(--accent);
+            color: white;
+            transform: rotate(15deg);
+            box-shadow: var(--shadow-glow);
+        }
+
+        .quick-menu {
+            position: absolute;
+            right: 0;
+            top: calc(100% + 10px);
+            width: min(320px, calc(100vw - 2rem));
+            border-radius: 14px;
+            border: 1px solid var(--border-glass);
+            background: var(--bg-surface);
+            backdrop-filter: blur(24px);
+            -webkit-backdrop-filter: blur(24px);
+            box-shadow: var(--shadow-xl);
+            padding: 0.8rem;
+            display: none;
+            z-index: 110;
+        }
+
+        .quick-menu.open {
+            display: block;
+        }
+
+        .quick-menu-header {
+            display: grid;
+            gap: 8px;
+            margin-bottom: 10px;
+        }
+
+        .quick-menu-actions {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 8px;
+        }
+
+        .quick-menu-actions .theme-toggle {
+            width: 100%;
+            height: 40px;
+            border: 1px solid var(--border-glass);
+            border-radius: 10px;
+        }
+
+        .quick-menu-actions .theme-toggle:hover {
+            transform: none;
+        }
+
+        .mobile-tabbar {
+            display: none;
+        }
+
+        .sync-chip {
+            max-width: 130px;
+            padding: 0.35rem 0.65rem;
+            font-size: 0.72rem;
+        }
+
+        .sync-chip.ok {
+            color: #10b981;
+        }
+
+        .sync-chip.warn {
+            color: #f59e0b;
+        }
+
+        .sync-chip.offline {
+            color: var(--text-muted);
+        }
+
+        .mobile-save-fab {
+            display: none;
+        }
+
+        /* ============================================
+           5. MAIN LAYOUT
+           ============================================ */
+        .main-container {
+            max-width: 400px; /* Mobile frame width */
+            margin: 2rem auto;
+            padding: 1.5rem;
+            background: var(--bg-surface);
+            border-radius: 40px;
+            box-shadow: 0 25px 60px rgba(0,0,0,0.25), inset 0 0 0 8px #000;
+            position: relative;
+            z-index: 1;
+            min-height: 850px;
+            overflow: hidden;
+        }
+        
+        .hero-3d-video {
+            width: calc(100% + 3rem);
+            margin: -1.5rem -1.5rem 1rem -1.5rem;
+            background: var(--accent);
+            border-bottom-left-radius: 24px;
+            border-bottom-right-radius: 24px;
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding-bottom: 2rem;
+            padding-top: 1rem;
+        }
+        
+        .hero-3d-video video {
+            width: 250px;
+            height: 250px;
+            object-fit: cover;
+            border-radius: 50%;
+            pointer-events: none;
+            mix-blend-mode: multiply;
+        }
+
+        .hero-text {
+            color: #121212;
+            text-align: center;
+            margin-top: 1rem;
+            padding: 0 1.5rem;
+        }
+
+        .hero-text h1 {
+            font-size: 1.5rem;
+            font-weight: 800;
+            line-height: 1.2;
+            text-transform: uppercase;
+        }
+        
+        .hero-text p {
+            font-size: 0.85rem;
+            font-weight: 500;
+            margin-top: 8px;
+            opacity: 0.8;
+        }
+
+        .content-grid {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 2rem;
+        }
+
+        @media (min-width: 1024px) {
+            .content-grid {
+                grid-template-columns: 380px 1fr;
+                gap: 2.5rem;
+            }
+        }
+
+        .left-column, .right-column {
+            display: flex;
+            flex-direction: column;
+            gap: 2rem;
+        }
+
+        /* ============================================
+           6. ENTRY FORM CARD
+           ============================================ */
+        .form-card {
+            padding: 2rem;
+        }
+
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.75rem;
+        }
+
+        .card-title {
+            font-size: 1.35rem;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            letter-spacing: -0.01em;
+        }
+
+        .card-title .icon-wrap {
+            color: var(--accent);
+        }
+
+        .date-badge {
+            font-size: 0.8rem;
+            font-weight: 500;
+            padding: 6px 14px;
+            background: var(--bg-section);
+            border-radius: 100px;
+            color: var(--text-secondary);
+            border: 1px solid var(--border-subtle);
+        }
+
+        .form-section {
+            background: var(--bg-section);
+            border: 1px solid var(--border-subtle);
+            border-radius: 18px;
+            padding: 1.25rem;
+            margin-bottom: 1rem;
+            transition: border-color 0.4s ease, box-shadow 0.4s ease, background 0.3s ease;
+            position: relative;
+        }
+        .form-section:hover {
+            border-color: hsla(var(--accent-h), 80%, 60%, 0.25);
+            box-shadow: 0 0 0 1px hsla(var(--accent-h), 80%, 60%, 0.08), 0 4px 16px -8px hsla(var(--accent-h), 80%, 60%, 0.1);
+        }
+
+        .section-title {
+            font-size: 0.82rem;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            color: var(--accent);
+            margin-bottom: 1rem;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+        }
+
+        .form-group {
+            margin-bottom: 0.85rem;
+        }
+        .form-group:last-child { margin-bottom: 0; }
+
+        .form-label {
+            display: block;
+            font-size: 0.78rem;
+            font-weight: 500;
+            color: var(--text-muted);
+            margin-bottom: 6px;
+            letter-spacing: 0.02em;
+        }
+
+        .form-input, .form-select {
+            width: 100%;
+            background: var(--bg-input);
+            border: 1.5px solid var(--border-subtle);
+            border-radius: var(--radius-input);
+            padding: 12px 16px;
+            font-family: 'Outfit', sans-serif;
+            font-size: 0.9rem;
+            color: var(--text-primary);
+            transition: all var(--transition-base);
+            outline: none;
+        }
+        .form-input::placeholder { color: var(--text-muted); opacity: 0.6; }
+
+        .form-input:focus, .form-select:focus {
+            border-color: var(--accent);
+            box-shadow: 0 0 0 3px var(--accent-glow), var(--shadow-glow);
+            background: var(--bg-surface-hover);
+        }
+
+        .form-select {
+            appearance: none;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='%239a8b7a' viewBox='0 0 16 16'%3E%3Cpath d='M4.5 6l3.5 4 3.5-4z'/%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 12px center;
+            padding-right: 36px;
+        }
+
+        .input-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 0.75rem;
+        }
+
+        /* Aarti Toggle Row */
+        .aarti-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .aarti-info p {
+            font-size: 0.72rem;
+            color: var(--text-muted);
+            margin-top: 4px;
+        }
+
+        /* Toggle Switch */
+        .switch {
+            position: relative;
+            width: 52px;
+            height: 28px;
+            flex-shrink: 0;
+        }
+        .switch input { display: none; }
+
+        .switch-slider {
+            position: absolute;
+            inset: 0;
+            background: var(--bg-section);
+            border: 2px solid var(--border-subtle);
+            border-radius: 100px;
+            cursor: pointer;
+            transition: all 0.35s ease;
+        }
+        .switch-slider::before {
+            content: '';
+            position: absolute;
+            width: 20px; height: 20px;
+            background: var(--text-muted);
+            border-radius: 50%;
+            top: 2px; left: 2px;
+            transition: all 0.35s cubic-bezier(0.68, -0.4, 0.27, 1.4);
+        }
+
+        .switch input:checked + .switch-slider {
+            background: linear-gradient(135deg, var(--accent), var(--accent-dark));
+            border-color: var(--accent);
+            box-shadow: 0 0 16px -4px var(--accent-glow);
+        }
+        .switch input:checked + .switch-slider::before {
+            background: white;
+            transform: translateX(24px);
+        }
+
+        /* Save Button */
+        .save-btn {
+            width: 100%;
+            padding: 15px 20px;
+            border: none;
+            border-radius: 16px;
+            background: linear-gradient(135deg, var(--accent), var(--accent-dark));
+            color: white;
+            font-family: 'Outfit', sans-serif;
+            font-size: 0.95rem;
+            font-weight: 700;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            box-shadow: 0 8px 28px -6px var(--accent-glow);
+            transition: all 0.35s cubic-bezier(0.22, 1, 0.36, 1);
+            position: relative;
+            overflow: hidden;
+            margin-top: 0.75rem;
+            letter-spacing: 0.02em;
+        }
+        .save-btn::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(135deg, transparent 30%, rgba(255,255,255,0.18));
+            opacity: 0;
+            transition: opacity 0.35s ease;
+        }
+        .save-btn::after {
+            content: '';
+            position: absolute;
+            top: 50%; left: 50%;
+            width: 0; height: 0;
+            background: rgba(255,255,255,0.15);
+            border-radius: 50%;
+            transform: translate(-50%, -50%);
+            transition: width 0.5s ease, height 0.5s ease;
+        }
+        .save-btn:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 14px 40px -8px var(--accent-glow);
+        }
+        .save-btn:hover::before { opacity: 1; }
+        .save-btn:hover::after { width: 300px; height: 300px; }
+        .save-btn:active {
+            transform: translateY(0) scale(0.97);
+        }
+
+        /* ============================================
+           7. CALENDAR CARD
+           ============================================ */
+        .calendar-card {
+            padding: 1.5rem;
+        }
+
+        .calendar-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.25rem;
+        }
+
+        .calendar-nav {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .cal-nav-btn {
+            width: 32px; height: 32px;
+            border: none;
+            background: var(--bg-section);
+            border-radius: 10px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--text-secondary);
+            transition: all var(--transition-base);
+        }
+        .cal-nav-btn:hover {
+            background: var(--accent);
+            color: white;
+            transform: scale(1.05);
+        }
+
+        .month-year-label {
+            font-size: 0.85rem;
+            font-weight: 600;
+            min-width: 95px;
+            text-align: center;
+            color: var(--text-primary);
+        }
+
+        .cal-weekdays {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            gap: 4px;
+            text-align: center;
+            font-size: 0.7rem;
+            font-weight: 600;
+            color: var(--text-muted);
+            margin-bottom: 8px;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+        }
+
+        .cal-grid {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            gap: 4px;
+        }
+
+        .cal-day {
+            aspect-ratio: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            border-radius: 12px;
+            font-size: 0.82rem;
+            font-weight: 500;
+            cursor: pointer;
+            position: relative;
+            transition: all 0.25s ease;
+            border: 1.5px solid transparent;
+        }
+        .cal-day:hover {
+            transform: scale(1.12);
+            z-index: 2;
+        }
+
+        .cal-day.empty { cursor: default; }
+        .cal-day.empty:hover { transform: none; }
+
+        .cal-day.score-high {
+            background: rgba(16, 185, 129, 0.12);
+            color: #059669;
+            border-color: rgba(16, 185, 129, 0.2);
+        }
+        .dark .cal-day.score-high {
+            background: rgba(16, 185, 129, 0.15);
+            color: #6ee7b7;
+            border-color: rgba(16, 185, 129, 0.25);
+        }
+
+        .cal-day.score-mid {
+            background: rgba(245, 158, 11, 0.12);
+            color: #d97706;
+            border-color: rgba(245, 158, 11, 0.2);
+        }
+        .dark .cal-day.score-mid {
+            background: rgba(245, 158, 11, 0.15);
+            color: #fbbf24;
+            border-color: rgba(245, 158, 11, 0.25);
+        }
+
+        .cal-day.score-low {
+            background: rgba(244, 63, 94, 0.10);
+            color: #e11d48;
+            border-color: rgba(244, 63, 94, 0.18);
+        }
+        .dark .cal-day.score-low {
+            background: rgba(244, 63, 94, 0.12);
+            color: #fb7185;
+            border-color: rgba(244, 63, 94, 0.2);
+        }
+
+        .cal-day.no-data {
+            background: var(--bg-section);
+            color: var(--text-muted);
+            border-color: var(--border-subtle);
+        }
+
+        .cal-day.selected {
+            outline: 2px solid var(--accent);
+            box-shadow: 0 0 0 2px var(--accent), 0 0 12px -2px var(--accent-glow);
+        }
+
+        .cal-day .today-dot {
+            position: absolute;
+            top: 3px; right: 3px;
+            width: 5px; height: 5px;
+            background: var(--accent);
+            border-radius: 50%;
+            box-shadow: 0 0 6px var(--accent-glow);
+        }
+
+        .cal-day .score-dot {
+            position: absolute;
+            bottom: 3px;
+            width: 4px; height: 4px;
+            border-radius: 50%;
+        }
+
+        .cal-legend {
+            display: flex;
+            justify-content: center;
+            gap: 1.25rem;
+            margin-top: 1rem;
+            font-size: 0.7rem;
+            color: var(--text-muted);
+        }
+        .cal-legend-item {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+        .cal-legend-dot {
+            width: 8px; height: 8px;
+            border-radius: 50%;
+        }
+        .cal-legend-dot.green { background: #10b981; box-shadow: 0 0 8px rgba(16,185,129,0.5); }
+        .cal-legend-dot.yellow { background: #f59e0b; box-shadow: 0 0 8px rgba(245,158,11,0.5); }
+        .cal-legend-dot.red { background: #f43f5e; box-shadow: 0 0 8px rgba(244,63,94,0.5); }
+
+        /* ============================================
+           8. STAT CARDS
+           ============================================ */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 1rem;
+        }
+        @media (min-width: 640px) {
+            .stats-grid { grid-template-columns: repeat(4, 1fr); }
+        }
+
+        .stat-card {
+            padding: 1.35rem 1.25rem;
+            text-align: center;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            overflow: hidden;
+            transition: transform 0.4s cubic-bezier(0.22, 1, 0.36, 1);
+        }
+        .stat-card:hover {
+            transform: translateY(-6px);
+        }
+
+        /* Top accent bar on stat cards */
+        .stat-card::after {
+            content: '';
+            position: absolute;
+            top: 0; left: 20%; right: 20%;
+            height: 3px;
+            border-radius: 0 0 4px 4px;
+            opacity: 0.7;
+            transition: left 0.3s ease, right 0.3s ease, opacity 0.3s ease;
+        }
+        .stat-card:hover::after {
+            left: 10%; right: 10%;
+            opacity: 1;
+        }
+        .stat-card:nth-child(1)::after { background: var(--stat-score-accent); }
+        .stat-card:nth-child(2)::after { background: var(--stat-chant-accent); }
+        .stat-card:nth-child(3)::after { background: var(--stat-read-accent); }
+        .stat-card:nth-child(4)::after { background: var(--stat-streak-accent); }
+
+        .stat-card .bg-icon {
+            position: absolute;
+            right: -8px; top: -8px;
+            opacity: 0.04;
+            pointer-events: none;
+        }
+
+        .stat-label {
+            font-size: 0.7rem;
+            font-weight: 600;
+            color: var(--text-muted);
+            margin-bottom: 8px;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+        }
+
+        .stat-value {
+            font-size: 2rem;
+            font-weight: 800;
+            letter-spacing: -0.03em;
+            line-height: 1;
+            color: var(--text-primary);
+        }
+        .stat-value.total {
+            font-size: 2.75rem;
+            background: linear-gradient(135deg, var(--accent), var(--accent-dark));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        .stat-value.total.color-green {
+            background: linear-gradient(135deg, #10b981, #059669);
+            -webkit-background-clip: text;
+            background-clip: text;
+        }
+        .stat-value.total.color-amber {
+            background: linear-gradient(135deg, #f59e0b, #d97706);
+            -webkit-background-clip: text;
+            background-clip: text;
+        }
+        .stat-value.total.color-red {
+            background: linear-gradient(135deg, #f43f5e, #e11d48);
+            -webkit-background-clip: text;
+            background-clip: text;
+        }
+
+        .stat-sub {
+            font-size: 0.65rem;
+            color: var(--text-muted);
+            margin-top: 6px;
+            font-weight: 500;
+            letter-spacing: 0.03em;
+        }
+
+        .streak-icon {
+            color: #f97316;
+            margin-right: 2px;
+            filter: drop-shadow(0 0 4px rgba(249, 115, 22, 0.4));
+        }
+
+        .streak-wrap {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        /* ============================================
+           9. CHARTS SECTION
+           ============================================ */
+        .charts-grid {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 1.5rem;
+        }
+        @media (min-width: 768px) {
+            .charts-grid { grid-template-columns: 1fr 1fr; }
+        }
+
+        .chart-card {
+            padding: 1.5rem;
+        }
+
+        .chart-header {
+            font-size: 1rem;
+            font-weight: 700;
+            margin-bottom: 1.25rem;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .chart-header .icon-wrap { color: var(--accent); }
+
+        .chart-canvas-wrap {
+            position: relative;
+            width: 100%;
+        }
+        .chart-canvas-wrap.line-chart { height: 220px; }
+        .chart-canvas-wrap.bar-chart { height: 180px; }
+
+        .chart-card.full-width {
+            grid-column: 1 / -1;
+        }
+
+        /* Circular Progress */
+        .progress-card {
+            padding: 1.5rem;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .progress-ring-wrap {
+            position: relative;
+            width: 140px; height: 140px;
+            margin: 1rem 0;
+        }
+
+        .progress-ring-wrap svg {
+            width: 100%; height: 100%;
+            transform: rotate(-90deg);
+        }
+
+        .progress-ring-bg {
+            fill: none;
+            stroke: var(--border-subtle);
+            stroke-width: 8;
+        }
+
+        .progress-ring-fill {
+            fill: none;
+            stroke-width: 8;
+            stroke-linecap: round;
+            transition: stroke-dashoffset 1.2s cubic-bezier(0.4, 0, 0.2, 1), stroke 0.4s ease;
+        }
+
+        .progress-center {
+            position: absolute;
+            inset: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .progress-percent {
+            font-size: 1.75rem;
+            font-weight: 800;
+            letter-spacing: -0.03em;
+        }
+
+        .progress-sublabel {
+            font-size: 0.62rem;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            color: var(--text-muted);
+            margin-top: 2px;
+        }
+
+        /* ============================================
+           10. TOAST NOTIFICATION
+           ============================================ */
+        .toast {
+            position: fixed;
+            bottom: 1.5rem;
+            left: 50%;
+            transform: translateX(-50%) translateY(100%);
+            background: var(--bg-surface);
+            backdrop-filter: blur(24px);
+            -webkit-backdrop-filter: blur(24px);
+            border: 1px solid var(--border-glass);
+            border-radius: 100px;
+            padding: 12px 24px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            box-shadow: 0 16px 48px -12px rgba(0,0,0,0.2);
+            z-index: 200;
+            opacity: 0;
+            pointer-events: none;
+            transition: transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.3s ease;
+        }
+        .toast.visible {
+            transform: translateX(-50%) translateY(0);
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        .toast-icon {
+            width: 28px; height: 28px;
+            background: rgba(16, 185, 129, 0.15);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #10b981;
+            flex-shrink: 0;
+        }
+
+        .toast-text {
+            font-size: 0.85rem;
+            font-weight: 500;
+            white-space: nowrap;
+        }
+
+        /* ============================================
+           11. SCROLLBAR
+           ============================================ */
+        ::-webkit-scrollbar { width: 0px; display: none; } /* Hide scrollbar for mobile feel */
+
+        /* ============================================
+           12. PAGE ENTRANCE ANIMATION
+           ============================================ */
+        @keyframes fadeInUp {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .animate-in {
+            animation: fadeInUp 0.4s cubic-bezier(0.22, 1, 0.36, 1) backwards;
+        }
+
+        /* ============================================
+           13. NATIVE MOBILE TAB & PANEL SYSTEM
+           ============================================ */
+        .mobile-tabbar {
+            position: fixed;
+            left: 50%;
+            transform: translateX(-50%);
+            bottom: 0;
+            width: 100%;
+            max-width: 480px;
+            z-index: 140;
+            display: grid;
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+            gap: 4px;
+            padding: 0.8rem 1rem calc(1rem + env(safe-area-inset-bottom));
+            border-top: 1px solid var(--border-glass);
+            background: #000000;
+        }
+        
+        .mobile-tab-btn {
+            border: none;
+            background: transparent;
+            color: var(--text-muted);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            font-family: 'Outfit', sans-serif;
+            font-size: 0.65rem;
+            font-weight: 600;
+            letter-spacing: 0.02em;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        
+        .mobile-tab-btn.active {
+            color: var(--accent);
+        }
+        .mobile-tab-btn.active i {
+            filter: drop-shadow(0 0 8px rgba(92, 225, 230, 0.4));
+        }
+
+        /* Panels (Pages) */
+        .mobile-panel {
+            display: none !important; /* Hide all panels by default */
+            animation: fadeInUp 0.3s ease;
+        }
+        
+        .mobile-panel.active {
+            display: flex !important;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        /* Responsive specific tweaks (if viewed on extremely small devices) */
+        @media (max-width: 400px) {
+            .nav-inner { padding: 0.5rem !important; }
+            .main-container { padding: 0.8rem !important; }
+        }
+
+        /* Multi-book input styles */
+        .book-entry-row {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 8px;
+            padding-bottom: 8px;
+            border-bottom: 1px solid var(--border-subtle);
+            animation: fadeInUp 0.3s ease backwards;
+        }
+        .book-entry-row:last-of-type {
+            border-bottom: none;
+            margin-bottom: 4px;
+            padding-bottom: 0;
+        }
+        .book-entry-row .form-input {
+            flex: 1;
+            padding: 9px 12px;
+            font-size: 0.85rem;
+        }
+        .book-entry-row .form-input.book-mins {
+            width: 70px;
+            flex: 0 0 70px;
+            text-align: center;
+        }
+        .book-remove-btn {
+            width: 30px; height: 30px;
+            border: none;
+            background: rgba(244, 63, 94, 0.08);
+            color: #f43f5e;
+            border-radius: 10px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            transition: all 0.25s ease;
+        }
+        .book-remove-btn:hover {
+            background: rgba(244, 63, 94, 0.18);
+            transform: scale(1.1);
+        }
+        .add-book-btn {
+            width: 100%;
+            padding: 10px;
+            border: 2px dashed var(--border-subtle);
+            border-radius: 12px;
+            background: transparent;
+            color: var(--text-muted);
+            font-family: 'Outfit', sans-serif;
+            font-size: 0.82rem;
+            font-weight: 600;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            transition: all 0.3s ease;
+            margin-top: 4px;
+        }
+        .add-book-btn:hover {
+            border-color: var(--accent);
+            color: var(--accent);
+            background: hsla(var(--accent-h), 80%, 60%, 0.05);
+        }
+        .add-book-btn:disabled {
+            opacity: 0.35;
+            cursor: not-allowed;
+            border-color: var(--border-subtle);
+            color: var(--text-muted);
+            background: transparent;
+        }
+
+        /* Books read dashboard items */
+        .book-read-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 0;
+            border-bottom: 1px solid var(--border-subtle);
+        }
+        .book-read-item:last-child {
+            border-bottom: none;
+            padding-bottom: 0;
+        }
+        .book-read-item:first-child {
+            padding-top: 0;
+        }
+        .book-read-name {
+            font-weight: 600;
+            font-size: 0.9rem;
+            color: var(--text-primary);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .book-read-name i { color: var(--accent); }
+        .book-read-mins {
+            font-size: 0.82rem;
+            font-weight: 600;
+            color: var(--text-secondary);
+            background: var(--bg-section);
+            padding: 4px 10px;
+            border-radius: 8px;
+        }
+
+        /* Leaderboard */
+        .leaderboard-card {
+            padding: 1.5rem;
+        }
+
+        .leaderboard-list {
+            display: flex;
+            flex-direction: column;
+            gap: 0.7rem;
+        }
+
+        .leaderboard-row {
+            display: grid;
+            grid-template-columns: 36px 1fr auto;
+            gap: 0.75rem;
+            align-items: center;
+            padding: 0.8rem 0.9rem;
+            border-radius: 16px;
+            background: var(--bg-section);
+            border: 1px solid var(--border-subtle);
+        }
+
+        .leaderboard-row.top-1 {
+            border-color: hsla(var(--accent-h), 90%, 55%, 0.35);
+            box-shadow: 0 8px 24px -16px var(--accent-glow);
+        }
+
+        .leaderboard-rank {
+            width: 36px;
+            height: 36px;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 800;
+            background: rgba(255, 255, 255, 0.12);
+            color: var(--text-primary);
+        }
+
+        .leaderboard-meta {
+            min-width: 0;
+        }
+
+        .leaderboard-name {
+            font-weight: 700;
+            color: var(--text-primary);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .leaderboard-sub {
+            font-size: 0.72rem;
+            color: var(--text-muted);
+            margin-top: 2px;
+        }
+
+        .leaderboard-score {
+            text-align: right;
+            min-width: 96px;
+        }
+
+        .leaderboard-score strong {
+            display: block;
+            font-size: 1.05rem;
+        }
+
+        .leaderboard-score span {
+            font-size: 0.72rem;
+            color: var(--text-muted);
+        }
+
+        .leaderboard-empty {
+            padding: 1rem 0;
+            color: var(--text-muted);
+            font-size: 0.9rem;
+            text-align: center;
+        }
+
+        /* ============================================
+           NATIVE MOBILE APP REDESIGN OVERRIDES
+           ============================================ */
+        body, html {
+            background-color: #000000 !important;
+            color: #ffffff !important;
+        }
+        
+        :root, .light, .dark {
+            --bg-base: #000000 !important;
+            --bg-surface: #101010 !important;
+            --bg-surface-hover: #1c1c1e !important;
+            --bg-input: #1a1a1a !important;
+            --bg-section: #1c1c1e !important;
+            --bg-card: #101010 !important;
+            --border-glass: #242424 !important;
+            --border-subtle: #2a2a2a !important;
+            --text-primary: #ffffff !important;
+            --text-secondary: #8e8e93 !important;
+            --text-muted: #636366 !important;
+            --accent: #5ce1e6 !important; /* Cyan accent from reference */
+            --accent-dark: #37b7bc !important;
+            --accent-glow: transparent !important;
+            --shadow-card: none !important;
+            --shadow-card-hover: none !important;
+            --radius-card: 32px !important;
+            --orb-1: transparent !important;
+            --orb-2: transparent !important;
+            --orb-3: transparent !important;
+        }
+
+        /* Remove the weird floating container and make it a full-screen mobile app */
+        .main-container {
+            max-width: 480px !important;
+            margin: 0 auto !important;
+            padding: 1rem !important;
+            background: #000000 !important;
+            box-shadow: none !important;
+            min-height: 100vh !important;
+            border-radius: 0 !important;
+        }
+
+        /* Force single column layout */
+        .content-grid {
+            display: flex !important;
+            flex-direction: column !important;
+            gap: 1rem !important;
+        }
+
+        /* Modern Flat Cards */
+        .glass-card {
+            background: var(--bg-surface) !important;
+            backdrop-filter: none !important;
+            border: 1px solid var(--border-glass) !important;
+            border-radius: var(--radius-card) !important;
+            padding: 1.5rem !important;
+        }
+
+        .card-header {
+            margin-bottom: 1.25rem !important;
+        }
+
+        .card-title {
+            font-size: 1rem !important;
+            text-transform: uppercase !important;
+            letter-spacing: 1px !important;
+            color: #ffffff !important;
+            font-weight: 700 !important;
+        }
+        .card-title .icon-wrap { display: none; } /* Hide icons to match minimalistic reference */
+
+        /* Inner sections / Form Groups */
+        .form-section {
+            background: var(--bg-section) !important;
+            border-radius: 20px !important;
+            border: 1px solid transparent !important;
+            padding: 1.25rem !important;
+            margin-bottom: 0.8rem !important;
+        }
+
+        .section-title {
+            color: #ffffff !important;
+            font-size: 0.75rem !important;
+            opacity: 0.8 !important;
+        }
+
+        .form-input, .form-select {
+            background: var(--bg-input) !important;
+            border: 1px solid var(--border-glass) !important;
+            border-radius: 12px !important;
+            padding: 1rem !important;
+            color: #ffffff !important;
+            font-size: 1rem !important;
+        }
+
+        /* Big Action Button (Like "LET'S START" in reference) */
+        .save-btn {
+            background: #ffffff !important;
+            color: #000000 !important;
+            border-radius: 20px !important;
+            padding: 1.25rem !important;
+            font-size: 0.85rem !important;
+            font-weight: 800 !important;
+            box-shadow: none !important;
+            text-transform: uppercase !important;
+            letter-spacing: 0.5px !important;
+            margin-top: 1rem !important;
+        }
+        .save-btn i { display: none; } /* Hide save icon */
+
+        /* Header / Nav matching mobile */
+        .top-nav {
+            background: #000000 !important;
+            border-bottom: none !important;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+        .nav-inner {
+            max-width: 480px !important;
+            margin: 0 auto;
+            padding: 0.5rem 1rem !important;
+            justify-content: center !important; /* Center the title */
+            position: relative;
+        }
+        .nav-brand {
+            margin: 0 auto;
+        }
+        .nav-logo { display: none !important; }
+        .nav-title {
+            color: #ffffff !important;
+            -webkit-text-fill-color: #ffffff !important;
+            font-size: 0.95rem !important;
+            font-weight: 600 !important;
+        }
+        .nav-profile-area {
+            position: absolute;
+            right: 1rem;
+        }
+
+        /* Calendar Grid styled like Challenge Days */
+        .cal-day {
+            background: #1c1c1e !important;
+            border: 1px solid #2c2c2e !important;
+            border-radius: 14px !important;
+            color: #ffffff !important;
+            font-weight: 600 !important;
+            aspect-ratio: 1 !important;
+            font-size: 0.9rem !important;
+        }
+        
+        .cal-day.score-high {
+            background: #ffffff !important;
+            color: #000000 !important;
+            border-color: #ffffff !important;
+        }
+        
+        .cal-day.score-mid {
+            background: var(--accent) !important;
+            color: #000000 !important;
+            border-color: var(--accent) !important;
+        }
+        
+        .cal-day.score-low {
+            background: #2c2c2e !important;
+            color: #aaaaaa !important;
+        }
+        
+        .cal-day .score-dot, .cal-day .today-dot { display: none !important; }
+
+        /* Stats Grid Fixes */
+        .stats-grid {
+            gap: 0.8rem !important;
+        }
+        .stat-card {
+            background: var(--bg-section) !important;
+            border-radius: 20px !important;
+            padding: 1.5rem !important;
+            border: 1px solid var(--border-glass) !important;
+        }
+        .stat-card::after { display: none !important; } /* Hide colored top bars */
+        .stat-value { color: #ffffff !important; }
+        .stat-value.total { 
+            background: var(--accent) !important;
+            -webkit-text-fill-color: var(--accent) !important; 
+        }
+
+    </style>
+</head>
+<body>
+
+    <!-- Animated Background Orbs -->
+    <div class="bg-orbs" aria-hidden="true">
+        <div class="orb orb-1"></div>
+        <div class="orb orb-2"></div>
+        <div class="orb orb-3"></div>
+    </div>
+
+    <!-- Top Navigation -->
+    <nav class="top-nav" id="topNav">
+        <div class="nav-inner">
+            <div class="nav-brand">
+                <div class="nav-logo">
+                    <i data-lucide="flower-2" style="width:20px;height:20px;"></i>
+                </div>
+                <span class="nav-title">Sadhana Tracker</span>
+            </div>
+            <div class="nav-profile-area">
+                <span id="syncStatusChip" class="auth-pill sync-chip offline" title="Sync status">
+                    <i data-lucide="cloud-off" style="width:14px;height:14px;"></i>
+                    <span id="syncStatusText">Offline</span>
+                </span>
+                <button id="quickMenuBtn" class="theme-toggle profile-action" aria-label="Open menu" title="Open menu" aria-expanded="false" aria-controls="quickMenuPanel">
+                    <i data-lucide="menu" style="width:18px;height:18px;"></i>
+                </button>
+                <div id="quickMenuPanel" class="quick-menu" role="menu" aria-hidden="true">
+                    <div class="quick-menu-header">
+                        <div class="auth-pill" title="Authentication status">
+                            <i data-lucide="shield-check" style="width:14px;height:14px;"></i>
+                            <span id="authStatusLabel">Local mode</span>
+                        </div>
+                        <span id="profileNameBadge" class="auth-pill" title="Profile name">
+                            <i data-lucide="user" style="width:14px;height:14px;"></i>
+                            <span id="profileNameText">Set name</span>
+                        </span>
+                    </div>
+                    <div class="quick-menu-actions">
+                        <button id="authBtn" class="theme-toggle profile-action" aria-label="Login" title="Login / Logout">
+                            <i data-lucide="log-in" id="authBtnIcon" style="width:18px;height:18px;"></i>
+                        </button>
+                        <button id="themeToggle" class="theme-toggle profile-action" aria-label="Toggle theme">
+                            <i data-lucide="moon" id="moonIcon" style="width:18px;height:18px;"></i>
+                            <i data-lucide="sun" id="sunIcon" style="width:18px;height:18px;display:none;"></i>
+                        </button>
+                        <button id="exportBtn" class="theme-toggle profile-action" aria-label="Export to Excel" title="Export to Excel">
+                            <i data-lucide="download" style="width:18px;height:18px;"></i>
+                        </button>
+                        <button id="setProfileNameBtn" class="theme-toggle profile-action" aria-label="Set profile name" title="Set profile name">
+                            <i data-lucide="user-pen" style="width:16px;height:16px;"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="main-container" style="padding-bottom: 90px !important;">
+        <div class="content-grid">
+
+            <!-- PAGE 1: TRACK -->
+            <div id="sectionTrack" class="mobile-panel active">
+                <div class="glass-card glass-card-glow form-card animate-in delay-1">
+                    <div class="card-header">
+                        <h2 class="card-title">
+                            <span class="icon-wrap"><i data-lucide="pen-line" style="width:22px;height:22px;"></i></span>
+                            Daily Entry
+                        </h2>
+                        <span id="selectedDateDisplay" class="date-badge"></span>
+                    </div>
+
+                    <form id="entryForm" autocomplete="off">
+                        <!-- Chanting Section -->
+                        <div class="form-section">
+                            <h3 class="section-title" style="margin-bottom:0.75rem;">
+                                <i data-lucide="music" style="width:14px;height:14px;"></i>
+                                Japa / Chanting (Rounds)
+                            </h3>
+                            <div class="input-row" style="grid-template-columns: 1fr;">
+                                <div style="display:flex; justify-content:space-between; align-items:center; border-bottom: 1px solid var(--border-subtle); padding-bottom: 8px; margin-bottom: 8px;">
+                                    <label class="form-label" style="margin:0;" for="rBefore630">Before 6:30 AM <span style="color:var(--accent); font-weight:700;">(5 pts)</span></label>
+                                    <input type="number" id="rBefore630" min="0" max="100" class="form-input" style="width:70px; padding:8px; text-align:center;" placeholder="0">
+                                </div>
+                                <div style="display:flex; justify-content:space-between; align-items:center; border-bottom: 1px solid var(--border-subtle); padding-bottom: 8px; margin-bottom: 8px;">
+                                    <label class="form-label" style="margin:0;" for="r630to800">6:30 – 8:00 AM <span style="color:var(--accent);">(4 pts)</span></label>
+                                    <input type="number" id="r630to800" min="0" max="100" class="form-input" style="width:70px; padding:8px; text-align:center;" placeholder="0">
+                                </div>
+                                <div style="display:flex; justify-content:space-between; align-items:center; border-bottom: 1px solid var(--border-subtle); padding-bottom: 8px; margin-bottom: 8px;">
+                                    <label class="form-label" style="margin:0;" for="r800to1000">8:00 – 10:00 AM <span style="color:var(--accent);">(2 pts)</span></label>
+                                    <input type="number" id="r800to1000" min="0" max="100" class="form-input" style="width:70px; padding:8px; text-align:center;" placeholder="0">
+                                </div>
+                                <div style="display:flex; justify-content:space-between; align-items:center; border-bottom: 1px solid var(--border-subtle); padding-bottom: 8px; margin-bottom: 8px;">
+                                    <label class="form-label" style="margin:0;" for="r1000to2100">10:00 AM – 9:00 PM <span style="opacity:0.6;">(1 pt)</span></label>
+                                    <input type="number" id="r1000to2100" min="0" max="100" class="form-input" style="width:70px; padding:8px; text-align:center;" placeholder="0">
+                                </div>
+                                <div style="display:flex; justify-content:space-between; align-items:center;">
+                                    <label class="form-label" style="margin:0;" for="rAfter2100">After 9:00 PM <span style="opacity:0.6;">(1 pt)</span></label>
+                                    <input type="number" id="rAfter2100" min="0" max="100" class="form-input" style="width:70px; padding:8px; text-align:center;" placeholder="0">
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Reading Section -->
+                        <div class="form-section">
+                            <h3 class="section-title">
+                                <i data-lucide="book-open" style="width:14px;height:14px;"></i>
+                                Reading
+                            </h3>
+                            <div id="booksListForm"></div>
+                            <button type="button" id="addBookBtn" class="add-book-btn">
+                                <i data-lucide="plus-circle" style="width:15px;height:15px;"></i>
+                                Add Book
+                            </button>
+                        </div>
+
+                        <!-- Aarti Section -->
+                        <div class="form-section">
+                            <div class="aarti-row">
+                                <div class="aarti-info">
+                                    <h3 class="section-title" style="margin-bottom:0;">
+                                        <i data-lucide="flame" style="width:14px;height:14px;"></i>
+                                        Mangal Aarti
+                                    </h3>
+                                    <p>Did you attend today?</p>
+                                </div>
+                                <label class="switch">
+                                    <input type="checkbox" id="aartiToggle">
+                                    <span class="switch-slider"></span>
+                                </label>
+                            </div>
+                        </div>
+
+                        <!-- Save & Edit Buttons -->
+                        <div style="display:flex;gap:8px;">
+                            <button type="submit" class="save-btn" id="saveBtn" style="flex:1;">
+                                <i data-lucide="save" style="width:18px;height:18px;"></i>
+                                Save Entry
+                            </button>
+                            <button type="button" class="save-btn" id="editBtn" style="flex:0 0 auto;padding:0 1.2rem;background:var(--bg-card);color:var(--text-muted);border:1px solid var(--border-subtle);display:none;" title="Unlock for editing">
+                                <i data-lucide="pencil" style="width:16px;height:16px;"></i>
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- PAGE 2: CALENDAR -->
+            <div id="sectionCalendar" class="mobile-panel">
+                <div class="glass-card calendar-card animate-in delay-2">
+                    <div class="calendar-header">
+                        <h2 class="card-title" style="font-size:1.1rem;">
+                            <span class="icon-wrap"><i data-lucide="calendar" style="width:18px;height:18px;"></i></span>
+                            Calendar
+                        </h2>
+                        <div class="calendar-nav">
+                            <button id="prevMonth" class="cal-nav-btn" aria-label="Previous month">
+                                <i data-lucide="chevron-left" style="width:16px;height:16px;"></i>
+                            </button>
+                            <span id="monthYearDisplay" class="month-year-label"></span>
+                            <button id="nextMonth" class="cal-nav-btn" aria-label="Next month">
+                                <i data-lucide="chevron-right" style="width:16px;height:16px;"></i>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="cal-weekdays">
+                        <div>Su</div><div>Mo</div><div>Tu</div><div>We</div><div>Th</div><div>Fr</div><div>Sa</div>
+                    </div>
+                    <div id="calendarGrid" class="cal-grid"></div>
+
+                    <div class="cal-legend">
+                        <div class="cal-legend-item"><div class="cal-legend-dot green"></div> 80+</div>
+                        <div class="cal-legend-item"><div class="cal-legend-dot yellow"></div> 50–79</div>
+                        <div class="cal-legend-item"><div class="cal-legend-dot red"></div> &lt;50</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- PAGE 3: DASHBOARD & ANALYTICS -->
+            <div id="sectionInsights" class="mobile-panel">
+
+                <!-- Stat Cards -->
+                <div class="stats-grid animate-in delay-3">
+                    <div class="glass-card glass-card-glow stat-card">
+                        <div class="bg-icon"><i data-lucide="award" style="width:80px;height:80px;"></i></div>
+                        <span class="stat-label">Total Score</span>
+                        <span id="statTotal" class="stat-value total">—</span>
+                        <span class="stat-sub">Max 100</span>
+                    </div>
+                    <div class="glass-card glass-card-glow stat-card">
+                        <span class="stat-label">Chanting</span>
+                        <span id="statChanting" class="stat-value">—</span>
+                        <span class="stat-sub">Max 80</span>
+                    </div>
+                    <div class="glass-card glass-card-glow stat-card">
+                        <span class="stat-label">Reading</span>
+                        <span id="statReading" class="stat-value">—</span>
+                        <span class="stat-sub">Max 15</span>
+                    </div>
+                    <div class="glass-card glass-card-glow stat-card">
+                        <span class="stat-label">Streak</span>
+                        <div class="streak-wrap">
+                            <i data-lucide="flame" class="streak-icon" style="width:20px;height:20px;"></i>
+                            <span id="statStreak" class="stat-value">0</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Separate Rounds Section -->
+                <div class="glass-card glass-card-glow animate-in delay-3" style="margin-top: 1rem; display: flex; justify-content: space-between; padding: 1rem 1.5rem; align-items: center;">
+                    <div style="font-weight: 500; color: var(--text-muted); font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.05em; display:flex; align-items:center; gap: 8px;">
+                        <i data-lucide="music" style="width:16px;height:16px; color:var(--accent);"></i> Total Rounds Chanted
+                    </div>
+                    <div style="font-size: 1.5rem; font-weight: 800; color: var(--text-main);">
+                        <span id="separateTotalRounds">—</span>
+                        <span id="separateExtraRounds" style="font-size: 0.85rem; font-weight: 500; color: var(--text-muted); margin-left: 8px;"></span>
+                    </div>
+                </div>
+
+                <!-- Books Read Section -->
+                <div id="booksReadSection" class="glass-card glass-card-glow animate-in delay-3" style="margin-top: 1rem; padding: 1.25rem 1.5rem; display: none;">
+                    <div style="font-weight: 600; color: var(--text-muted); font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.08em; display:flex; align-items:center; gap: 8px; margin-bottom: 0.85rem;">
+                        <i data-lucide="library" style="width:16px;height:16px; color:var(--accent);"></i> Books Read Today
+                    </div>
+                    <div id="booksReadList"></div>
+                </div>
+
+                <!-- Leaderboard -->
+                <div class="glass-card leaderboard-card animate-in delay-4" style="margin-top: 1rem;">
+                    <div class="card-header" style="margin-bottom: 1rem;">
+                        <h2 class="card-title" style="font-size:1.1rem;">
+                            <span class="icon-wrap"><i data-lucide="trophy" style="width:18px;height:18px;"></i></span>
+                            Leaderboard
+                        </h2>
+                        <span class="date-badge" id="leaderboardScope">This Month</span>
+                    </div>
+                    <div id="leaderboardList" class="leaderboard-list"></div>
+                </div>
+
+                <!-- Charts -->
+                <div class="charts-grid">
+                    <!-- Line Chart -->
+                    <div class="glass-card chart-card full-width animate-in delay-5">
+                        <h3 class="chart-header">
+                            <span class="icon-wrap"><i data-lucide="trending-up" style="width:18px;height:18px;"></i></span>
+                            Daily Score Trend (Last 14 Days)
+                        </h3>
+                        <div class="chart-canvas-wrap line-chart">
+                            <canvas id="lineChart"></canvas>
+                        </div>
+                    </div>
+
+                    <!-- Bar Chart -->
+                    <div class="glass-card chart-card animate-in delay-6">
+                        <h3 class="chart-header">
+                            <span class="icon-wrap"><i data-lucide="bar-chart-3" style="width:18px;height:18px;"></i></span>
+                            Weekly Averages
+                        </h3>
+                        <div class="chart-canvas-wrap bar-chart">
+                            <canvas id="barChart"></canvas>
+                        </div>
+                    </div>
+
+                    <!-- Circular Progress -->
+                    <div class="glass-card progress-card animate-in delay-6">
+                        <h3 class="chart-header" style="width:100%;align-self:flex-start;">
+                            <span class="icon-wrap"><i data-lucide="target" style="width:18px;height:18px;"></i></span>
+                            Monthly Target
+                        </h3>
+                        <div class="progress-ring-wrap">
+                            <svg viewBox="0 0 100 100">
+                                <circle class="progress-ring-bg" cx="50" cy="50" r="40"></circle>
+                                <circle id="progressCircle" class="progress-ring-fill" cx="50" cy="50" r="40"
+                                    stroke="var(--accent)"
+                                    stroke-dasharray="251.2"
+                                    stroke-dashoffset="251.2">
+                                </circle>
+                            </svg>
+                            <div class="progress-center">
+                                <span id="monthlyAvgText" class="progress-percent">0%</span>
+                                <span class="progress-sublabel">Average</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </main>
+
+    <nav class="mobile-tabbar" aria-label="Primary mobile navigation">
+        <button class="mobile-tab-btn active" data-section-target="sectionTrack">
+            <i data-lucide="pen-line" style="width:18px;height:18px;"></i>
+            <span>Track</span>
+        </button>
+        <button class="mobile-tab-btn" data-section-target="sectionCalendar">
+            <i data-lucide="calendar-days" style="width:18px;height:18px;"></i>
+            <span>Calendar</span>
+        </button>
+        <button class="mobile-tab-btn" data-section-target="sectionInsights">
+            <i data-lucide="bar-chart-3" style="width:18px;height:18px;"></i>
+            <span>Insights</span>
+        </button>
+        <button class="mobile-tab-btn" data-open-menu="true">
+            <i data-lucide="settings-2" style="width:18px;height:18px;"></i>
+            <span>Menu</span>
+        </button>
+    </nav>
+    <button id="mobileSaveFab" class="mobile-save-fab" type="button" aria-label="Save today's entry">
+        <i data-lucide="save" style="width:16px;height:16px;"></i>
+        Save Today
+    </button>
+
+    <!-- Toast Notification -->
+    <div id="toast" class="toast">
+        <div class="toast-icon">
+            <i data-lucide="check" style="width:14px;height:14px;"></i>
+        </div>
+        <span class="toast-text">Entry saved successfully!</span>
+    </div>
+
+    <script>
+        // ============================================
+        // 1. STATE MANAGEMENT (localStorage)
+        // ============================================
+        const PROFILE_NAME_KEY = 'sadhanaProfileName';
+        const PROFILE_NAME_LOCK_KEY = 'sadhanaProfileNameLocked';
+        const PROFILE_LIST_KEY = 'sadhanaProfiles'; // legacy migration support
+        const ACTIVE_PROFILE_KEY = 'sadhanaActiveProfileId'; // legacy migration support
+        const DATA_KEY_PREFIX = 'sadhanaData:';
+        const LEGACY_DATA_KEY = 'sadhanaData';
+
+        const db = new Map();
+        let profileName = '';
+        let isProfileNameLocked = false;
+        let currentDate = new Date();
+        let displayMonthDate = new Date();
+
+        const formatDate = (date) => {
+            const d = new Date(date);
+            const month = '' + (d.getMonth() + 1);
+            const day = '' + d.getDate();
+            const year = d.getFullYear();
+            return [year, month.padStart(2, '0'), day.padStart(2, '0')].join('-');
+        };
+
+        let selectedDateStr = formatDate(currentDate);
+
+        let lineChartInst = null;
+        let barChartInst = null;
+        let firebaseApp = null;
+        let firebaseAuth = null;
+        let isFirebaseReady = false;
+        let currentUser = null;
+        let lastSyncStatus = 'offline';
+
+        // initFirebaseAuth is defined below after all helper functions
+
+        function getProfileDataKey() {
+            return LEGACY_DATA_KEY;
+        }
+
+        function safeParseJSON(raw, fallback) {
+            try {
+                return raw ? JSON.parse(raw) : fallback;
+            } catch (e) {
+                return fallback;
+            }
+        }
+
+        function persistSingleProfileMeta() {
+            localStorage.setItem(PROFILE_NAME_KEY, profileName);
+            localStorage.setItem(PROFILE_NAME_LOCK_KEY, isProfileNameLocked ? '1' : '0');
+        }
+
+        function loadProfileEntries() {
+            const raw = localStorage.getItem(getProfileDataKey());
+            const parsed = safeParseJSON(raw, {});
+            const map = new Map();
+
+            for (const [key, value] of Object.entries(parsed)) {
+                map.set(key, value);
+            }
+
+            return map;
+        }
+
+        function saveProfileEntries(map = db) {
+            const obj = {};
+            for (const [key, value] of map.entries()) {
+                obj[key] = value;
+            }
+            localStorage.setItem(getProfileDataKey(), JSON.stringify(obj));
+        }
+
+        function ensureSingleProfileState() {
+            // Migrate old multi-profile data into one dataset (active profile wins).
+            const existingSingleData = localStorage.getItem(LEGACY_DATA_KEY);
+            if (!existingSingleData) {
+                const legacyProfiles = safeParseJSON(localStorage.getItem(PROFILE_LIST_KEY), []);
+                const legacyActiveId = localStorage.getItem(ACTIVE_PROFILE_KEY);
+                const sourceProfileId = legacyActiveId || (Array.isArray(legacyProfiles) && legacyProfiles[0] ? legacyProfiles[0].id : null);
+                if (sourceProfileId) {
+                    const migratedData = localStorage.getItem(`${DATA_KEY_PREFIX}${sourceProfileId}`);
+                    if (migratedData) {
+                        localStorage.setItem(LEGACY_DATA_KEY, migratedData);
+                    }
+                    const sourceProfile = Array.isArray(legacyProfiles) ? legacyProfiles.find(p => p.id === sourceProfileId) : null;
+                    if (sourceProfile && sourceProfile.name && !localStorage.getItem(PROFILE_NAME_KEY)) {
+                        localStorage.setItem(PROFILE_NAME_KEY, sourceProfile.name);
+                    }
+                }
+            }
+
+            profileName = (localStorage.getItem(PROFILE_NAME_KEY) || '').trim();
+            isProfileNameLocked = localStorage.getItem(PROFILE_NAME_LOCK_KEY) === '1';
+            if (!profileName && currentUser?.email) {
+                profileName = currentUser.email.split('@')[0];
+            }
+            if (!profileName) {
+                profileName = 'Sadhaka';
+            }
+            persistSingleProfileMeta();
+        }
+
+        function getActiveProfile() {
+            return { name: profileName };
+        }
+
+        function updateProfileNameUI() {
+            const nameText = document.getElementById('profileNameText');
+            const btn = document.getElementById('setProfileNameBtn');
+            if (!nameText || !btn) return;
+            nameText.innerText = profileName || 'Set name';
+            btn.style.display = isProfileNameLocked ? 'none' : 'inline-flex';
+        }
+
+        function promptAndSetProfileName(forcePrompt = false) {
+            if (isProfileNameLocked && !forcePrompt) {
+                return;
+            }
+            const currentValue = profileName && profileName !== 'Sadhaka' ? profileName : '';
+            const entered = prompt('Set your profile name (one-time):', currentValue);
+            if (entered === null) return;
+            const trimmed = entered.trim();
+            if (!trimmed) {
+                alert('Profile name cannot be empty.');
+                return;
+            }
+            profileName = trimmed;
+            isProfileNameLocked = true;
+            persistSingleProfileMeta();
+            updateProfileNameUI();
+            renderLeaderboard();
+        }
+
+        function setupQuickMenu() {
+            const menuBtn = document.getElementById('quickMenuBtn');
+            const panel = document.getElementById('quickMenuPanel');
+            if (!menuBtn || !panel) return;
+
+            const closeMenu = () => {
+                panel.classList.remove('open');
+                panel.setAttribute('aria-hidden', 'true');
+                menuBtn.setAttribute('aria-expanded', 'false');
+            };
+
+            const openMenu = () => {
+                panel.classList.add('open');
+                panel.setAttribute('aria-hidden', 'false');
+                menuBtn.setAttribute('aria-expanded', 'true');
+            };
+
+            menuBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                if (panel.classList.contains('open')) {
+                    closeMenu();
+                } else {
+                    openMenu();
+                }
+            });
+
+            panel.addEventListener('click', (e) => {
+                e.stopPropagation();
+            });
+
+            document.addEventListener('click', closeMenu);
+            document.addEventListener('keydown', (e) => {
+                if (e.key === 'Escape') {
+                    closeMenu();
+                }
+            });
+
+            // allow other handlers to open the same menu
+            window.__openQuickMenu = openMenu;
+        }
+
+        function setupMobileTabs() {
+            const tabs = Array.from(document.querySelectorAll('.mobile-tab-btn'));
+            if (!tabs.length) return;
+            const sections = [
+                document.getElementById('sectionTrack'),
+                document.getElementById('sectionCalendar'),
+                document.getElementById('sectionInsights')
+            ].filter(Boolean);
+
+            const applyMobileSection = (targetId) => {
+                // Ensure all are hidden first
+                sections.forEach(section => {
+                    section.classList.remove('active');
+                });
+                
+                // Show only the selected tab
+                const activeSection = document.getElementById(targetId);
+                if (activeSection) {
+                    activeSection.classList.add('active');
+                }
+            };
+
+            // Force initial state on load
+            applyMobileSection('sectionTrack');
+
+            tabs.forEach((tab) => {
+                tab.addEventListener('click', () => {
+                    const openMenu = tab.dataset.openMenu === 'true';
+                    if (openMenu) {
+                        if (typeof window.__openQuickMenu === 'function') {
+                            window.__openQuickMenu();
+                        }
+                        return;
+                    }
+
+                    const targetId = tab.dataset.sectionTarget;
+                    const targetEl = targetId ? document.getElementById(targetId) : null;
+                    if (!targetEl) return;
+
+                    tabs.forEach(btn => btn.classList.remove('active'));
+                    tab.classList.add('active');
+                    applyMobileSection(targetId);
+                    
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                });
+            });
+        }
+
+        function updateSyncUI() {
+            const chip = document.getElementById('syncStatusChip');
+            const text = document.getElementById('syncStatusText');
+            if (!chip || !text) return;
+
+            chip.classList.remove('ok', 'warn', 'offline');
+
+            if (!isFirebaseReady) {
+                chip.classList.add('offline');
+                text.innerText = 'Local only';
+                return;
+            }
+            if (!currentUser) {
+                chip.classList.add('offline');
+                text.innerText = 'Offline';
+                return;
+            }
+            if (lastSyncStatus === 'synced') {
+                chip.classList.add('ok');
+                text.innerText = 'Synced';
+                return;
+            }
+            if (lastSyncStatus === 'failed') {
+                chip.classList.add('warn');
+                text.innerText = 'Sync issue';
+                return;
+            }
+            chip.classList.add('warn');
+            text.innerText = 'Syncing';
+        }
+
+        function updateAuthUI() {
+            const label = document.getElementById('authStatusLabel');
+            const btn = document.getElementById('authBtn');
+            const icon = document.getElementById('authBtnIcon');
+            if (!label || !btn || !icon) return;
+
+            if (!isFirebaseReady) {
+                label.innerText = 'Local mode';
+                btn.title = 'Firebase config missing';
+                icon.setAttribute('data-lucide', 'cloud-off');
+                updateSyncUI();
+                if (window.lucide) lucide.createIcons();
+                return;
+            }
+
+            if (currentUser) {
+                const display = currentUser.displayName || currentUser.email || 'Signed in';
+                label.innerText = display;
+                btn.title = 'Logout';
+                icon.setAttribute('data-lucide', 'log-out');
+            } else {
+                label.innerText = 'Not signed in';
+                btn.title = 'Login';
+                icon.setAttribute('data-lucide', 'log-in');
+            }
+
+            updateSyncUI();
+            if (window.lucide) lucide.createIcons();
+        }
+
+        async function ensureFirebaseUserProfile(user) {
+            if (!user) return;
+            if (!isProfileNameLocked) {
+                const fallbackName = user.displayName || (user.email ? user.email.split('@')[0] : '');
+                if (fallbackName) {
+                    profileName = fallbackName;
+                }
+            }
+            persistSingleProfileMeta();
+            updateProfileNameUI();
+            await loadEntriesFromCloud();
+        }
+
+        function initFirebaseAuth() {
+            try {
+                const cfg = window.FIREBASE_CONFIG || {};
+                const hasConfig = !!(cfg.apiKey && cfg.authDomain && cfg.projectId && cfg.appId);
+
+                if (!window.firebase || !hasConfig) {
+                    isFirebaseReady = false;
+                    updateAuthUI();
+                    return;
+                }
+
+                firebaseApp = firebase.apps.length ? firebase.app() : firebase.initializeApp(cfg);
+                firebaseAuth = firebase.auth(firebaseApp);
+                isFirebaseReady = true;
+
+                firebaseAuth.onAuthStateChanged(async (user) => {
+                    currentUser = user || null;
+                    lastSyncStatus = currentUser ? 'syncing' : 'offline';
+                    if (user) {
+                        await ensureFirebaseUserProfile(user);
+                        initFirestore();
+                    } else {
+                        ensureSingleProfileState();
+                    }
+                    updateAuthUI();
+                    updateProfileNameUI();
+                    renderCalendar();
+                    updateFormUI();
+                    updateCharts();
+                    renderLeaderboard();
+                    updateSyncUI();
+                });
+            } catch (err) {
+                console.warn('Firebase initialization failed:', err);
+                isFirebaseReady = false;
+                lastSyncStatus = 'offline';
+                updateAuthUI();
+            }
+        }
+
+        async function loadFromLocalStorage() {
+            ensureSingleProfileState();
+            db.clear();
+
+            const activeEntries = loadProfileEntries();
+            for (const [key, value] of activeEntries.entries()) {
+                db.set(key, value);
+            }
+            
+            // Re-sync with cloud after local load
+            if (currentUser && firestore) {
+                await loadEntriesFromCloud();
+            }
+        }
+
+        function saveToLocalStorage() {
+            try {
+                saveProfileEntries(db);
+            } catch (e) {
+                console.warn('Failed to save to localStorage:', e);
+            }
+        }
+
+        // ============================================
+        // 2. FIRESTORE SYNC & LEADERBOARD
+        // ============================================
+        
+        let firestore = null;
+        let unsubscribeLeaderboard = null;
+        let globalLeaderboardCache = [];
+        
+        function initFirestore() {
+            if (!isFirebaseReady || !window.firebase || !firebase.firestore) return;
+            firestore = firebase.firestore();
+            fetchGlobalLeaderboard();
+        }
+        
+        async function syncEntryToCloud(dateStr, entryData) {
+            if (!firestore || !currentUser) return;
+            try {
+                lastSyncStatus = 'syncing';
+                updateSyncUI();
+                // Save specific daily entry
+                await firestore.collection('users')
+                    .doc(currentUser.uid)
+                    .collection('entries')
+                    .doc(dateStr)
+                    .set(entryData);
+                    
+                // Update user's aggregated leaderboard document
+                await updateCloudLeaderboardStats();
+                lastSyncStatus = 'synced';
+                updateSyncUI();
+            } catch (err) {
+                console.error("Error syncing to Firestore:", err);
+                lastSyncStatus = 'failed';
+                updateSyncUI();
+            }
+        }
+        
+        async function loadEntriesFromCloud() {
+            if (!firestore || !currentUser) return;
+            try {
+                const snapshot = await firestore.collection('users')
+                    .doc(currentUser.uid)
+                    .collection('entries')
+                    .get();
+                    
+                let updated = false;
+                snapshot.forEach(doc => {
+                    const data = doc.data();
+                    db.set(doc.id, data);
+                    updated = true;
+                });
+                
+                if (updated) {
+                    saveToLocalStorage(); // sync back to local
+                    renderCalendar();
+                    updateFormUI();
+                    updateCharts();
+                }
+            } catch (err) {
+                console.error("Error loading specific entries from Firestore:", err);
+            }
+        }
+        
+        async function updateCloudLeaderboardStats() {
+            if (!firestore || !currentUser) return;
+            try {
+                // calculate current stats locally
+                const userEntries = loadProfileEntries();
+                const now = new Date();
+                const streak = calculateStreakFromEntries(userEntries, now);
+                const monthScore = getMonthlyScore(userEntries, now.getFullYear(), now.getMonth());
+                
+                let allTimeScore = 0;
+                userEntries.forEach(value => { allTimeScore += getEntryScore(value); });
+                
+                // push to a public leaderboard collection
+                await firestore.collection('leaderboard').doc(currentUser.uid).set({
+                    uid: currentUser.uid,
+                    name: profileName || "Anonymous",
+                    monthScore: monthScore,
+                    allTimeScore: allTimeScore,
+                    streak: streak,
+                    entryCount: userEntries.size,
+                    lastUpdated: firebase.firestore.FieldValue.serverTimestamp()
+                });
+            } catch (err) {
+                console.error("Leaderboard stats update failed:", err);
+            }
+        }
+        
+        function fetchGlobalLeaderboard() {
+            if (!firestore) return;
+            
+            if (unsubscribeLeaderboard) unsubscribeLeaderboard();
+            
+            unsubscribeLeaderboard = firestore.collection('leaderboard')
+                .orderBy('monthScore', 'desc')
+                .limit(10)
+                .onSnapshot(snapshot => {
+                    globalLeaderboardCache = [];
+                    snapshot.forEach(doc => {
+                        globalLeaderboardCache.push(doc.data());
+                    });
+                    renderLeaderboard();
+                }, err => {
+                    console.error("Live leaderboard error:", err);
+                });
+        }
+
+        // ============================================
+        // 3. SCORING ENGINE
+        // ============================================
+        function calculateScore(chantingObj, readingMins, aartiAttended) {
+            let chantingScore = 0;
+            let totalRounds = 0;
+            let extraRounds = 0;
+
+            if (chantingObj) {
+                let r1 = chantingObj.before630 || 0;
+                let r2 = chantingObj.from630to800 || 0;
+                let r3 = chantingObj.from800to1000 || 0;
+                let r4 = chantingObj.from1000to2100 || 0;
+                let r5 = chantingObj.after2100 || 0;
+
+                totalRounds = r1 + r2 + r3 + r4 + r5;
+                extraRounds = Math.max(0, totalRounds - 16);
+
+                let remaining = 16;
+                let take = 0;
+
+                take = Math.min(remaining, r1);
+                chantingScore += take * 5;
+                remaining -= take;
+
+                take = Math.min(remaining, r2);
+                chantingScore += take * 4;
+                remaining -= take;
+
+                take = Math.min(remaining, r3);
+                chantingScore += take * 2;
+                remaining -= take;
+
+                take = Math.min(remaining, r4);
+                chantingScore += take * 1;
+                remaining -= take;
+
+                take = Math.min(remaining, r5);
+                chantingScore += take * 1;
+                remaining -= take;
+            }
+
+            let readingScore = 0;
+            const mins = readingMins || 0;
+            if (mins > 0 && mins < 15) readingScore = -20;
+            else if (mins >= 15 && mins < 30) readingScore = 5;
+            else if (mins >= 30 && mins < 45) readingScore = 10;
+            else if (mins >= 45) readingScore = 15;
+
+            let aartiScore = aartiAttended ? 5 : 0;
+
+            let total = chantingScore + readingScore + aartiScore;
+            let finalTotal = Math.min(Math.max(total, 0), 100);
+
+            return {
+                total: Math.round(finalTotal),
+                chanting: Math.round(chantingScore),
+                reading: readingScore,
+                aarti: aartiScore,
+                totalRounds: totalRounds,
+                extraRounds: extraRounds
+            };
+        }
+
+        // ============================================
+        // 3. MOCK DATA GENERATOR
+        // ============================================
+        function generateMockData() {
+            const today = new Date();
+            for (let i = 0; i < 45; i++) {
+                const d = new Date(today);
+                d.setDate(d.getDate() - i);
+                const dateStr = formatDate(d);
+
+                const isGoodDay = Math.random() > 0.3;
+                const readingMins = isGoodDay ? 30 : Math.floor(Math.random() * 60);
+                const aarti = isGoodDay;
+
+                let chantingObj = {
+                    before630: isGoodDay ? 16 : Math.floor(Math.random() * 4),
+                    from630to800: Math.floor(Math.random() * 4),
+                    from800to1000: 0,
+                    from1000to2100: 0,
+                    after2100: 0
+                };
+
+                const scores = calculateScore(chantingObj, readingMins, aarti);
+
+                db.set(dateStr, {
+                    chanting: chantingObj, readingMins, bookName: isGoodDay ? 'Bhagavad Gita' : '', aarti, scores
+                });
+            }
+            db.delete(formatDate(new Date()));
+        }
+
+        function getEntryScore(entry) {
+            return entry && entry.scores ? entry.scores.total || 0 : 0;
+        }
+
+        function calculateStreakFromEntries(entriesMap, referenceDate = new Date()) {
+            let streak = 0;
+            const todayStr = formatDate(referenceDate);
+            const yesterday = new Date(referenceDate);
+            yesterday.setDate(yesterday.getDate() - 1);
+            const yesterdayStr = formatDate(yesterday);
+            const startDateStr = entriesMap.has(todayStr) ? todayStr : yesterdayStr;
+            const checkDate = new Date(startDateStr + 'T00:00:00');
+
+            while (true) {
+                const dateStr = formatDate(checkDate);
+                const data = entriesMap.get(dateStr);
+                if (data && data.scores && data.scores.total > 0) {
+                    streak++;
+                    checkDate.setDate(checkDate.getDate() - 1);
+                } else {
+                    break;
+                }
+            }
+
+            return streak;
+        }
+
+        function getMonthlyScore(entriesMap, year, month) {
+            let total = 0;
+            entriesMap.forEach((value, dateStr) => {
+                const date = new Date(dateStr + 'T00:00:00');
+                if (date.getFullYear() === year && date.getMonth() === month && value && value.scores) {
+                    total += value.scores.total || 0;
+                }
+            });
+            return total;
+        }
+
+        function renderLeaderboard() {
+            const container = document.getElementById('leaderboardList');
+            if (!container) return;
+
+            let renderRows = [];
+
+            if (firestore && globalLeaderboardCache.length > 0) {
+                // Cloud Leaderboard Render
+                renderRows = globalLeaderboardCache.map((doc, idx) => {
+                    const isCurrentUser = currentUser && doc.uid === currentUser.uid;
+                    return `
+                        <div class="leaderboard-row ${idx === 0 ? 'top-1' : ''}" style="${isCurrentUser ? 'background:var(--bg-surface-hover);' : ''}">
+                            <div class="leaderboard-rank">${idx + 1}</div>
+                            <div class="leaderboard-meta">
+                                <div class="leaderboard-name">${doc.name}${isCurrentUser ? ' · You' : ''}</div>
+                                <div class="leaderboard-sub">${doc.entryCount || 0} entries · ${doc.streak || 0} day streak</div>
+                            </div>
+                            <div class="leaderboard-score">
+                                <strong>${doc.monthScore || 0}</strong>
+                                <span>this month · ${doc.allTimeScore || 0} total</span>
+                            </div>
+                        </div>
+                    `;
+                });
+            } else {
+                // Local Single-Profile Render (Fallback)
+                const now = new Date();
+                const year = now.getFullYear();
+                const month = now.getMonth();
+                const entriesMap = loadProfileEntries();
+                let allTimeScore = 0;
+                entriesMap.forEach(value => {
+                    allTimeScore += getEntryScore(value);
+                });
+                renderRows = [`
+                    <div class="leaderboard-row top-1" style="background:var(--bg-surface-hover);">
+                        <div class="leaderboard-rank">1</div>
+                        <div class="leaderboard-meta">
+                            <div class="leaderboard-name">${profileName || 'You'} · You</div>
+                            <div class="leaderboard-sub">${entriesMap.size} entries · ${calculateStreakFromEntries(entriesMap, now)} day streak</div>
+                        </div>
+                        <div class="leaderboard-score">
+                            <strong>${getMonthlyScore(entriesMap, year, month)}</strong>
+                            <span>this month · ${allTimeScore} total</span>
+                        </div>
+                    </div>
+                `];
+            }
+
+            if (renderRows.length === 0) {
+                container.innerHTML = '<div class="leaderboard-empty">No data yet.</div>';
+                return;
+            }
+
+            container.innerHTML = renderRows.join('');
+        }
+
+        function addBookRow(bookName = '', bookMins = '') {
+            const container = document.getElementById('booksListForm');
+            const row = document.createElement('div');
+            row.className = 'book-entry-row';
+            row.innerHTML = `
+                <input type="text" class="form-input book-name" placeholder="Book name" value="${bookName}">
+                <input type="number" class="form-input book-mins" min="0" placeholder="mins" value="${bookMins}">
+                <button type="button" class="book-remove-btn" title="Remove"><i data-lucide="x" style="width:14px;height:14px;"></i></button>
+            `;
+            row.querySelector('.book-remove-btn').addEventListener('click', () => {
+                row.remove();
+                // Ensure at least one row remains
+                if (container.querySelectorAll('.book-entry-row').length === 0) {
+                    addBookRow();
+                }
+            });
+            container.appendChild(row);
+            if (window.lucide) lucide.createIcons();
+        }
+
+        function getBooksFromForm() {
+            const rows = document.querySelectorAll('#booksListForm .book-entry-row');
+            const books = [];
+            rows.forEach(row => {
+                const name = row.querySelector('.book-name').value.trim();
+                const mins = parseInt(row.querySelector('.book-mins').value) || 0;
+                if (name || mins > 0) {
+                    books.push({ name: name || 'Untitled', mins });
+                }
+            });
+            return books;
+        }
+
+        document.getElementById('addBookBtn').addEventListener('click', () => {
+            addBookRow();
+        });
+
+        function updateFormUI() {
+            const dateStr = selectedDateStr;
+            const data = db.get(dateStr) || {
+                chanting: { before630: '', from630to800: '', from800to1000: '', from1000to2100: '', after2100: '' },
+                readingMins: '', bookName: '', aarti: false
+            };
+
+            // Backwards compatibility for mock data
+            if (data.rounds !== undefined) {
+                data.chanting = { before630: '', from630to800: '', from800to1000: '', from1000to2100: '', after2100: '' };
+                const t = data.timeFactor;
+                if(t === 'before630') data.chanting.before630 = data.rounds;
+                else if(t === '630to800') data.chanting.from630to800 = data.rounds;
+                else if(t === '800to1000') data.chanting.from800to1000 = data.rounds;
+                else if(t === '1000to2100') data.chanting.from1000to2100 = data.rounds;
+                else if(t === 'after2100') data.chanting.after2100 = data.rounds;
+            }
+
+            document.getElementById('rBefore630').value = data.chanting?.before630 ?? '';
+            document.getElementById('r630to800').value = data.chanting?.from630to800 ?? '';
+            document.getElementById('r800to1000').value = data.chanting?.from800to1000 ?? '';
+            document.getElementById('r1000to2100').value = data.chanting?.from1000to2100 ?? '';
+            document.getElementById('rAfter2100').value = data.chanting?.after2100 ?? '';
+            document.getElementById('aartiToggle').checked = data.aarti ?? false;
+
+            // Populate books list
+            const booksContainer = document.getElementById('booksListForm');
+            booksContainer.innerHTML = '';
+            const books = data.books || (data.bookName ? [{ name: data.bookName, mins: data.readingMins || 0 }] : []);
+            if (books.length === 0) {
+                addBookRow();
+            } else {
+                books.forEach(b => addBookRow(b.name, b.mins));
+            }
+
+            const isLocked = !!(data.scores);
+            const inputIds = ['rBefore630', 'r630to800', 'r800to1000', 'r1000to2100', 'rAfter2100', 'aartiToggle'];
+            inputIds.forEach(id => {
+                document.getElementById(id).disabled = isLocked;
+            });
+            // Lock book rows
+            booksContainer.querySelectorAll('.form-input').forEach(el => el.disabled = isLocked);
+            booksContainer.querySelectorAll('.book-remove-btn').forEach(el => el.style.display = isLocked ? 'none' : '');
+            document.getElementById('addBookBtn').disabled = isLocked;
+
+            const saveBtn = document.getElementById('saveBtn');
+            const mobileFab = document.getElementById('mobileSaveFab');
+            const editBtn = document.getElementById('editBtn');
+            if (isLocked) {
+                saveBtn.disabled = true;
+                saveBtn.innerHTML = '<i data-lucide="lock" style="width:18px;height:18px;margin-bottom:-3px;margin-right:5px;"></i> Entry Locked';
+                saveBtn.style.background = 'var(--bg-card)';
+                saveBtn.style.color = 'var(--text-muted)';
+                saveBtn.style.border = '1px solid var(--border-subtle)';
+                saveBtn.style.cursor = 'not-allowed';
+                if (mobileFab) {
+                    mobileFab.disabled = true;
+                    mobileFab.innerHTML = '<i data-lucide="lock" style="width:16px;height:16px;"></i> Locked';
+                }
+                if (editBtn) editBtn.style.display = 'flex';
+            } else {
+                saveBtn.disabled = false;
+                saveBtn.innerHTML = '<i data-lucide="save" style="width:18px;height:18px;margin-bottom:-3px;margin-right:5px;"></i> Save Entry';
+                saveBtn.style.background = 'var(--accent)';
+                saveBtn.style.color = '#ffffff';
+                saveBtn.style.border = 'none';
+                saveBtn.style.cursor = 'pointer';
+                if (mobileFab) {
+                    mobileFab.disabled = false;
+                    mobileFab.innerHTML = '<i data-lucide="save" style="width:16px;height:16px;"></i> Save Today';
+                }
+                if (editBtn) editBtn.style.display = 'none';
+            }
+            if (window.lucide) lucide.createIcons();
+
+            const dateObj = new Date(dateStr + 'T00:00:00');
+            const options = { weekday: 'short', month: 'short', day: 'numeric' };
+            document.getElementById('selectedDateDisplay').innerText = dateObj.toLocaleDateString(undefined, options);
+
+            updateScoreCards(dateStr);
+        }
+
+        function updateScoreCards(dateStr) {
+            const data = db.get(dateStr);
+            const t = document.getElementById('statTotal');
+            const c = document.getElementById('statChanting');
+            const r = document.getElementById('statReading');
+            const sepTotal = document.getElementById('separateTotalRounds');
+            const sepExtra = document.getElementById('separateExtraRounds');
+
+            if (data && data.scores) {
+                t.innerText = data.scores.total;
+                c.innerText = data.scores.chanting;
+                r.innerText = data.scores.reading;
+
+                if (sepTotal) {
+                    sepTotal.innerText = data.scores.totalRounds || 0;
+                    sepExtra.innerText = data.scores.extraRounds > 0 ? `(+${data.scores.extraRounds} Extra)` : '';
+                }
+
+                // Gradient color coding
+                t.className = 'stat-value total';
+                if (data.scores.total >= 80) t.classList.add('color-green');
+                else if (data.scores.total >= 50) t.classList.add('color-amber');
+                else t.classList.add('color-red');
+            } else {
+                t.innerText = '—';
+                c.innerText = '—';
+                r.innerText = '—';
+                t.className = 'stat-value total';
+                if (sepTotal) {
+                    sepTotal.innerText = '—';
+                    sepExtra.innerText = '';
+                }
+            }
+
+            // Books Read Section
+            const booksSection = document.getElementById('booksReadSection');
+            const booksList = document.getElementById('booksReadList');
+            const books = data?.books || (data?.bookName ? [{ name: data.bookName, mins: data.readingMins || 0}] : []);
+            if (books.length > 0 && books.some(b => b.name)) {
+                booksSection.style.display = 'block';
+                booksList.innerHTML = books.map(b => `
+                    <div class="book-read-item">
+                        <span class="book-read-name">
+                            <i data-lucide="book-open" style="width:14px;height:14px;"></i>
+                            ${b.name || 'Untitled'}
+                        </span>
+                        <span class="book-read-mins">${b.mins} min${b.mins !== 1 ? 's' : ''}</span>
+                    </div>
+                `).join('');
+                if (window.lucide) lucide.createIcons();
+            } else {
+                booksSection.style.display = 'none';
+                booksList.innerHTML = '';
+            }
+
+            calculateAndDisplayStreak();
+        }
+
+        // saveCurrentEntry is handled via the entryForm submit listener below
+        
+        async function editCurrentEntry() {
+            const dateStr = selectedDateStr;
+            const data = db.get(dateStr);
+            if (data) {
+                delete data.scores;
+                db.set(dateStr, data);
+                saveToLocalStorage();
+                
+                if (currentUser && firestore) {
+                    await syncEntryToCloud(dateStr, data); 
+                }
+                
+                updateFormUI();
+                renderCalendar();
+            }
+        }
+
+        document.getElementById('editBtn').addEventListener('click', editCurrentEntry);
+
+        function renderCalendar() {
+            const grid = document.getElementById('calendarGrid');
+            const monthYear = document.getElementById('monthYearDisplay');
+            grid.innerHTML = '';
+
+            const year = displayMonthDate.getFullYear();
+            const month = displayMonthDate.getMonth();
+
+            const firstDay = new Date(year, month, 1);
+            const lastDay = new Date(year, month + 1, 0);
+            const daysInMonth = lastDay.getDate();
+            const startDayOfWeek = firstDay.getDay();
+
+            monthYear.innerText = new Intl.DateTimeFormat('en-US', { month: 'short', year: 'numeric' }).format(displayMonthDate);
+
+            for (let i = 0; i < startDayOfWeek; i++) {
+                const empty = document.createElement('div');
+                empty.className = 'cal-day empty';
+                grid.appendChild(empty);
+            }
+
+            const todayStr = formatDate(new Date());
+
+            for (let i = 1; i <= daysInMonth; i++) {
+                const dateStr = formatDate(new Date(year, month, i));
+                const data = db.get(dateStr);
+
+                const cell = document.createElement('div');
+                cell.className = 'cal-day';
+
+                let scoreClass = 'no-data';
+                let dotHTML = '';
+
+                if (data && data.scores) {
+                    const s = data.scores.total;
+                    if (s >= 80) {
+                        scoreClass = 'score-high';
+                        dotHTML = '<div class="score-dot" style="background:#10b981;box-shadow:0 0 6px rgba(16,185,129,0.6);"></div>';
+                    } else if (s >= 50) {
+                        scoreClass = 'score-mid';
+                        dotHTML = '<div class="score-dot" style="background:#f59e0b;box-shadow:0 0 6px rgba(245,158,11,0.6);"></div>';
+                    } else {
+                        scoreClass = 'score-low';
+                        dotHTML = '<div class="score-dot" style="background:#f43f5e;box-shadow:0 0 6px rgba(244,63,94,0.6);"></div>';
+                    }
+                }
+
+                cell.classList.add(scoreClass);
+
+                if (dateStr === selectedDateStr) cell.classList.add('selected');
+
+                let todayDot = dateStr === todayStr ? '<div class="today-dot"></div>' : '';
+
+                cell.innerHTML = `${i}${todayDot}${dotHTML}`;
+
+                cell.addEventListener('click', () => {
+                    selectedDateStr = dateStr;
+                    renderCalendar();
+                    updateFormUI();
+                });
+
+                grid.appendChild(cell);
+            }
+        }
+
+        // ============================================
+        // 5. ANALYTICS & CHARTS
+        // ============================================
+        function calculateAndDisplayStreak() {
+            document.getElementById('statStreak').innerText = calculateStreakFromEntries(db);
+        }
+
+        function getChartColors() {
+            const isDark = document.documentElement.classList.contains('dark');
+            return {
+                text: isDark ? '#a09888' : '#6b5c4c',
+                grid: isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.04)',
+                line: '#f97316',
+                fill: isDark ? 'rgba(249, 115, 22, 0.08)' : 'rgba(249, 115, 22, 0.12)',
+                bar1: '#10b981',
+                bar2: '#f59e0b',
+                bar3: '#8b5cf6'
+            };
+        }
+
+        function updateCharts() {
+            const colors = getChartColors();
+            Chart.defaults.color = colors.text;
+            Chart.defaults.font.family = "'Outfit', sans-serif";
+
+            // --- Line Chart (Last 14 days) ---
+            const labelsLine = [];
+            const dataLine = [];
+
+            for (let i = 13; i >= 0; i--) {
+                const d = new Date();
+                d.setDate(d.getDate() - i);
+                const dateStr = formatDate(d);
+                labelsLine.push(d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' }));
+
+                const entry = db.get(dateStr);
+                dataLine.push(entry && entry.scores ? entry.scores.total : 0);
+            }
+
+            const ctxLine = document.getElementById('lineChart').getContext('2d');
+            if (lineChartInst) lineChartInst.destroy();
+
+            // Gradient fill
+            const lineGrad = ctxLine.createLinearGradient(0, 0, 0, 220);
+            lineGrad.addColorStop(0, 'rgba(249, 115, 22, 0.25)');
+            lineGrad.addColorStop(1, 'rgba(249, 115, 22, 0.0)');
+
+            lineChartInst = new Chart(ctxLine, {
+                type: 'line',
+                data: {
+                    labels: labelsLine,
+                    datasets: [{
+                        label: 'Total Score',
+                        data: dataLine,
+                        borderColor: colors.line,
+                        backgroundColor: lineGrad,
+                        borderWidth: 2.5,
+                        tension: 0.4,
+                        fill: true,
+                        pointBackgroundColor: '#fff',
+                        pointBorderColor: colors.line,
+                        pointBorderWidth: 2,
+                        pointRadius: 4,
+                        pointHoverRadius: 7,
+                        pointHoverBackgroundColor: colors.line,
+                        pointHoverBorderColor: '#fff'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    interaction: { mode: 'index', intersect: false },
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            backgroundColor: 'rgba(0,0,0,0.75)',
+                            titleFont: { weight: '600' },
+                            padding: 12,
+                            cornerRadius: 10,
+                            displayColors: false
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true, max: 100,
+                            grid: { color: colors.grid, drawBorder: false },
+                            border: { display: false },
+                            ticks: { padding: 8, font: { size: 11 } }
+                        },
+                        x: {
+                            grid: { display: false },
+                            border: { display: false },
+                            ticks: { font: { size: 10 }, maxRotation: 0 }
+                        }
+                    }
+                }
+            });
+
+            // --- Bar Chart (Weekly Averages for last 4 weeks) ---
+            const labelsBar = ['Week 4', 'Week 3', 'Week 2', 'This Week'];
+            const dataBar = [0, 0, 0, 0];
+
+            for (let w = 0; w < 4; w++) {
+                let sum = 0;
+                for (let d = 0; d < 7; d++) {
+                    const dateObj = new Date();
+                    dateObj.setDate(dateObj.getDate() - (w * 7 + d));
+                    const entry = db.get(formatDate(dateObj));
+                    if (entry && entry.scores) {
+                        sum += entry.scores.total;
+                    }
+                }
+                dataBar[3 - w] = Math.round(sum / 7);
+            }
+
+            const ctxBar = document.getElementById('barChart').getContext('2d');
+            if (barChartInst) barChartInst.destroy();
+
+            barChartInst = new Chart(ctxBar, {
+                type: 'bar',
+                data: {
+                    labels: labelsBar,
+                    datasets: [{
+                        label: 'Avg Score',
+                        data: dataBar,
+                        backgroundColor: dataBar.map(val =>
+                            val >= 80 ? 'rgba(16, 185, 129, 0.7)' :
+                            val >= 50 ? 'rgba(245, 158, 11, 0.7)' :
+                            'rgba(244, 63, 94, 0.7)'
+                        ),
+                        borderRadius: 8,
+                        borderSkipped: false,
+                        barPercentage: 0.6
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            backgroundColor: 'rgba(0,0,0,0.75)',
+                            padding: 12,
+                            cornerRadius: 10,
+                            displayColors: false
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true, max: 100,
+                            grid: { color: colors.grid, drawBorder: false },
+                            border: { display: false },
+                            ticks: { padding: 8, font: { size: 11 } }
+                        },
+                        x: {
+                            grid: { display: false },
+                            border: { display: false },
+                            ticks: { font: { size: 10 } }
+                        }
+                    }
+                }
+            });
+
+            // --- Monthly Progress Circle ---
+            updateMonthlyProgress();
+        }
+
+        function updateMonthlyProgress() {
+            const date = new Date();
+            const year = date.getFullYear();
+            const month = date.getMonth();
+            let daysPassed = date.getDate();
+
+            let totalScore = 0;
+            for (let i = 1; i <= daysPassed; i++) {
+                const dateStr = formatDate(new Date(year, month, i));
+                const data = db.get(dateStr);
+                if (data && data.scores) {
+                    totalScore += data.scores.total;
+                }
+            }
+
+            const maxPossibleSoFar = daysPassed * 100;
+            const percentage = maxPossibleSoFar === 0 ? 0 : Math.round((totalScore / maxPossibleSoFar) * 100);
+
+            document.getElementById('monthlyAvgText').innerText = `${percentage}%`;
+
+            const circle = document.getElementById('progressCircle');
+            const circumference = 2 * Math.PI * 40;
+            const offset = circumference - (percentage / 100) * circumference;
+
+            // Color based on performance
+            let strokeColor;
+            if (percentage >= 80) strokeColor = '#10b981';
+            else if (percentage >= 50) strokeColor = '#f59e0b';
+            else strokeColor = '#f43f5e';
+
+            circle.setAttribute('stroke', strokeColor);
+
+            setTimeout(() => {
+                circle.style.strokeDashoffset = offset;
+            }, 200);
+        }
+
+        // ============================================
+        // 6. EVENT LISTENERS & INIT
+        // ============================================
+        function showToast() {
+            const toast = document.getElementById('toast');
+            toast.classList.add('visible');
+            setTimeout(() => {
+                toast.classList.remove('visible');
+            }, 3000);
+        }
+
+        document.getElementById('entryForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const chantingObj = {
+                before630: parseInt(document.getElementById('rBefore630').value) || 0,
+                from630to800: parseInt(document.getElementById('r630to800').value) || 0,
+                from800to1000: parseInt(document.getElementById('r800to1000').value) || 0,
+                from1000to2100: parseInt(document.getElementById('r1000to2100').value) || 0,
+                after2100: parseInt(document.getElementById('rAfter2100').value) || 0
+            };
+            const books = getBooksFromForm();
+            const totalReadingMins = books.reduce((sum, b) => sum + b.mins, 0);
+            const aarti = document.getElementById('aartiToggle').checked;
+
+            if (chantingObj.before630 < 0 || chantingObj.from630to800 < 0 || chantingObj.from800to1000 < 0 || chantingObj.from1000to2100 < 0 || chantingObj.after2100 < 0) {
+                alert("Values cannot be negative.");
+                return;
+            }
+
+            const scores = calculateScore(chantingObj, totalReadingMins, aarti);
+
+            const entryData = {
+                chanting: chantingObj, books, readingMins: totalReadingMins, aarti, scores
+            };
+
+            db.set(selectedDateStr, entryData);
+            saveToLocalStorage();
+
+            // Cloud sync
+            if (currentUser && firestore) {
+                await syncEntryToCloud(selectedDateStr, entryData);
+            }
+
+            renderCalendar();
+            updateScoreCards(selectedDateStr);
+            updateFormUI();
+            updateCharts();
+            renderLeaderboard();
+            showToast();
+        });
+
+        document.getElementById('setProfileNameBtn').addEventListener('click', () => {
+            promptAndSetProfileName(true);
+        });
+
+        document.getElementById('mobileSaveFab').addEventListener('click', () => {
+            const saveBtn = document.getElementById('saveBtn');
+            if (!saveBtn || saveBtn.disabled) return;
+            document.getElementById('entryForm').requestSubmit();
+        });
+
+        document.getElementById('authBtn').addEventListener('click', async () => {
+            if (!isFirebaseReady) {
+                alert('Firebase is not configured yet. Update firebase-config.js first.');
+                return;
+            }
+
+            try {
+                if (currentUser) {
+                    await firebaseAuth.signOut();
+                    return;
+                }
+                window.location.href = 'login.html';
+            } catch (err) {
+                alert(`Authentication failed: ${err.message || 'Unknown error'}`);
+            }
+        });
+
+        document.getElementById('prevMonth').addEventListener('click', () => {
+            displayMonthDate.setMonth(displayMonthDate.getMonth() - 1);
+            renderCalendar();
+        });
+
+        document.getElementById('nextMonth').addEventListener('click', () => {
+            displayMonthDate.setMonth(displayMonthDate.getMonth() + 1);
+            renderCalendar();
+        });
+
+        // Theme Toggle
+        const themeToggleBtn = document.getElementById('themeToggle');
+        const htmlEl = document.documentElement;
+
+        if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+            htmlEl.classList.remove('light');
+            htmlEl.classList.add('dark');
+            document.getElementById('sunIcon').style.display = '';
+            document.getElementById('moonIcon').style.display = 'none';
+        }
+
+        themeToggleBtn.addEventListener('click', () => {
+            htmlEl.classList.toggle('dark');
+            htmlEl.classList.toggle('light');
+            const isDark = htmlEl.classList.contains('dark');
+
+            document.getElementById('moonIcon').style.display = isDark ? 'none' : '';
+            document.getElementById('sunIcon').style.display = isDark ? '' : 'none';
+
+            updateCharts();
+        });
+
+        // Export Button
+        document.getElementById("exportBtn").addEventListener("click", exportToExcel);
+
+        function exportToExcel() {
+            const data = [];
+            const sortedDates = Array.from(db.keys()).sort((a, b) => new Date(a) - new Date(b));
+
+            sortedDates.forEach(date => {
+                const value = db.get(date);
+                const day = new Date(date).toLocaleDateString('en-US', { weekday: 'short' });
+
+                const chanting = value.chanting || {};
+
+                const books = value.books || [];
+                const bookNames = books.map(b => b.name).join(", ");
+                const totalMins = books.reduce((sum, b) => sum + (b.mins || 0), 0);
+
+                data.push({
+                    Date: date,
+                    Day: day,
+                    "Before 6:30": chanting.before630 || 0,
+                    "6:30–8:00": chanting.from630to800 || 0,
+                    "8:00–10:00": chanting.from800to1000 || 0,
+                    "10:00–9:00": chanting.from1000to2100 || 0,
+                    "After 9:00": chanting.after2100 || 0,
+                    "Total Rounds": value.scores?.totalRounds || 0,
+                    "Chanting Score": value.scores?.chanting || 0,
+                    "Books": bookNames,
+                    "Reading Mins": totalMins,
+                    "Reading Score": value.scores?.reading || 0,
+                    "Aarti": value.scores?.aarti || 0,
+                    "Total Score": value.scores?.total || 0
+                });
+            });
+
+            if (data.length === 0) {
+                alert("No data to export!");
+                return;
+            }
+
+            const worksheet = XLSX.utils.json_to_sheet(data);
+            const workbook = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(workbook, worksheet, "Sadhana");
+
+            const exportName = profileName || 'Profile';
+            XLSX.writeFile(workbook, `Sadhana_Tracker_${exportName.replace(/[^a-z0-9_-]+/gi, '_')}.xlsx`);
+        }
+
+        // Init
+        window.addEventListener('load', () => {
+            loadFromLocalStorage();
+            initFirebaseAuth();
+            setupQuickMenu();
+            setupMobileTabs();
+            lucide.createIcons();
+            updateAuthUI();
+            updateProfileNameUI();
+            if (!isProfileNameLocked) {
+                setTimeout(() => {
+                    promptAndSetProfileName(false);
+                }, 250);
+            }
+            renderCalendar();
+            updateFormUI();
+            updateCharts();
+            renderLeaderboard();
+        });
+
+        // Service Worker Registration
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('service-worker.js')
+                .then(() => console.log('Service Worker registered'))
+                .catch(err => console.warn('SW registration failed:', err));
+        }
+    </script>
+</body>
+</html>
